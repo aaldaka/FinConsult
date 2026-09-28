@@ -40,7 +40,7 @@ Provide a link to your user stories.
 
 ### ERD
 
-![AdvisorLink ERD](erd.png)
+![AdvisorLink ERD](ERD.png)
 ### Planning
 
 Provide a link to your planning documentation/GitHub Project showing:
