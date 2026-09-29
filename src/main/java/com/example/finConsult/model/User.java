@@ -1,5 +1,7 @@
 package com.example.finConsult.model;
 
+import com.example.finConsult.model.enums.UserRole;
+import com.example.finConsult.model.enums.UserStatus;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -1,4 +1,4 @@
-package com.example.finConsult.model;
+package com.example.finConsult.model.enums;
 
 public enum UserStatus {
     UNVERIFIED,
