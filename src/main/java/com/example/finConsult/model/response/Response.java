@@ -13,4 +13,5 @@ public class Response {
     private String firstName;
     private String lastName;
     private UserRole role; // admin client advisor
+    private String token; // jwt token, null when registering
 }

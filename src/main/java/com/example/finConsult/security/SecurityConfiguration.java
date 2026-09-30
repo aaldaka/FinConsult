@@ -9,18 +9,14 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration //to let the java know this is the bean that has the executable code
 @EnableMethodSecurity(prePostEnabled = true) //itll  be checked before and after a method, and we can add (role == "sth) to add more stuff
 @RequiredArgsConstructor
 public class SecurityConfiguration {
-//
-//    private MyUserDetailsService myUserDetailsService;
-//
-//    @Bean
-//    public JwtRequestFilter authenticationJwtTokenFilter(){
-//        return new JwtRequestFilter();
-//    }
+
+    private final JwtRequestFilter jwtRequestFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder(){
@@ -40,14 +36,9 @@ public class SecurityConfiguration {
                 );
 
         //inserting the jwt filtering into the chain somewhere before giving an OK to the system to accept the user
-//        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
-//
-//    @Bean
-//    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception{
-//        return authConfig.getAuthenticationManager(); //checkss creds and return the user if theyre valid
-//    }
 
 }

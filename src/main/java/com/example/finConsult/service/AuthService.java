@@ -16,6 +16,7 @@ import com.example.finConsult.model.response.Response;
 import com.example.finConsult.repository.PasswordResetTokenRepository;
 import com.example.finConsult.repository.ProfileRepository;
 import com.example.finConsult.repository.UserRepository;
+import com.example.finConsult.security.JWTUtils;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,6 +36,7 @@ public class AuthService {
     private final ProfileRepository profileRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final JWTUtils jwtUtils;
 
     @Transactional //following ACID
     public Response register(RegistrationRequest request) {
@@ -56,8 +58,8 @@ public class AuthService {
             profileRepository.save(userProfile);
 
             //email verification token (TODO)
-
-        return new Response(currentUser.getId(), currentUser.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), currentUser.getRole());
+// initially when registering null
+        return new Response(currentUser.getId(), currentUser.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), currentUser.getRole(), null);
     }
 
     public Response login(LoginRequest request) {
@@ -76,8 +78,10 @@ public class AuthService {
         Profile userProfile = profileRepository.findByUser(user)
                 .orElseThrow(() -> new InformationIncorrect("User does not exist."));
 
+        String token = jwtUtils.generateToken(user.getEmail());
+
         //jwt token instead of manual response body(TODO)
-        return new Response(user.getId(), user.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), user.getRole());
+        return new Response(user.getId(), user.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), user.getRole(), token);
 
     }
 

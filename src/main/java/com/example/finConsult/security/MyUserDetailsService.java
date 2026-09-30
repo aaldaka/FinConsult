@@ -1,26 +1,24 @@
-//package com.example.finConsult.security;
-//
-//import com.example.finConsult.model.User;
-//import lombok.AllArgsConstructor;
-//import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
-//import org.springframework.security.core.userdetails.UserDetails;
-//import org.springframework.security.core.userdetails.UserDetailsService;
-//import org.springframework.security.core.userdetails.UsernameNotFoundException;
-//import org.springframework.stereotype.Service;
-//
-//import java.security.Security;
-//
-//
-//@Service
-//@AllArgsConstructor
-//public class MyUserDetailsService implements UserDetailsService {
-//
-//    private UserService userService;
-//
-//    @Override
-//    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-//        User user = userService.findUserByEmailAddress(email);
-//        return new MyUserDetails(user);
-//    }
-//}
-//
+package com.example.finConsult.security;
+
+import com.example.finConsult.model.User;
+import com.example.finConsult.repository.UserRepository;
+import lombok.AllArgsConstructor;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+@Service
+@AllArgsConstructor
+public class MyUserDetailsService implements UserDetailsService {
+
+    private final UserRepository userRepository;
+
+    @Override
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        return new MyUserDetails(user);
+    }
+}
+
