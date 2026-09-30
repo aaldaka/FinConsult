@@ -25,9 +25,6 @@ import java.time.LocalDateTime;
         @Column(nullable = false)
         private Specialty specialty;
 
-        @Column(columnDefinition = "TEXT")
-        private String bio;
-
         @Column(name = "years_of_experience")
         private int yearsOfExperience;
 

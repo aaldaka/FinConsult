@@ -29,23 +29,23 @@ public class SecurityConfiguration {
     public PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
     }
-//
-//    @Bean //required
-//    public SecurityFilterChain filterChain(HttpSecurity http)throws Exception{
-//        http.csrf(csrf -> csrf.disable()) //if backend and frontend on diff domain, we need to enable it for cross sites
-//                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//                .authorizeHttpRequests(auth -> auth.requestMatchers(
-//                                        "/auth/users",
-//                                        "/auth/users/login",
-//                                        "/auth/users/register"
-//                                ).permitAll()
-//                                .anyRequest().authenticated()
-//                );
-//
-//        //inserting the jwt filtering into the chain somewhere before giving an OK to the system to accept the user
-////        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
-//        return http.build();
-//    }
+
+    @Bean //required
+    public SecurityFilterChain filterChain(HttpSecurity http)throws Exception{
+        http.csrf(csrf -> csrf.disable()) //if backend and frontend on diff domain, we need to enable it for cross sites
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.requestMatchers(
+                                        "/api/auth/login",
+                                        "/api/auth/register"
+                                ).permitAll()
+                                .anyRequest().authenticated()
+                );
+
+        //inserting the jwt filtering into the chain somewhere before giving an OK to the system to accept the user
+//        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+
 //
 //    @Bean
 //    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception{
