@@ -3,15 +3,12 @@ package com.example.finConsult.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration //to let the java know this is the bean that has the executable code
 @EnableMethodSecurity(prePostEnabled = true) //itll  be checked before and after a method, and we can add (role == "sth) to add more stuff
@@ -35,8 +32,9 @@ public class SecurityConfiguration {
         http.csrf(csrf -> csrf.disable()) //if backend and frontend on diff domain, we need to enable it for cross sites
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers(
-                                        "/api/auth/login",
-                                        "/api/auth/register"
+                                        "/auth/login",
+                                        "/auth/register",
+                                        "/auth/forget-password"
                                 ).permitAll()
                                 .anyRequest().authenticated()
                 );

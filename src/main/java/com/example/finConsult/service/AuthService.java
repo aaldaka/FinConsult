@@ -4,32 +4,37 @@ package com.example.finConsult.service;
 import com.example.finConsult.exception.EmailExists;
 import com.example.finConsult.exception.InformationIncorrect;
 import com.example.finConsult.exception.InformationNotFound;
+import com.example.finConsult.model.PasswordResetToken;
 import com.example.finConsult.model.Profile;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.VerificationToken;
+import com.example.finConsult.model.request.ForgetPasswordRequest;
 import com.example.finConsult.model.request.LoginRequest;
 import com.example.finConsult.model.request.RegistrationRequest;
+import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.model.response.Response;
+import com.example.finConsult.repository.PasswordResetTokenRepository;
 import com.example.finConsult.repository.ProfileRepository;
 import com.example.finConsult.repository.UserRepository;
 import jakarta.transaction.Transactional;
+import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 import static com.example.finConsult.model.enums.UserRole.*;
 import static com.example.finConsult.model.enums.UserStatus.*;
 
+@AllArgsConstructor
 @Service
 public class AuthService {
 
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
     private final PasswordEncoder passwordEncoder;
-
-    public AuthService(UserRepository userRepository, ProfileRepository profileRepository, PasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
-        this.profileRepository = profileRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Transactional //following ACID
     public Response register(RegistrationRequest request) {
@@ -71,8 +76,26 @@ public class AuthService {
         Profile userProfile = profileRepository.findByUser(user)
                 .orElseThrow(() -> new InformationIncorrect("User does not exist."));
 
-        //jwt token instead of manual response body.
+        //jwt token instead of manual response body(TODO)
         return new Response(user.getId(), user.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), user.getRole());
 
     }
-}
+
+    public MessageResponse forgetPassword(ForgetPasswordRequest pswdReq){
+        userRepository.findByEmail(pswdReq.getEmail()).ifPresent(user -> {
+            String token = UUID.randomUUID().toString();
+
+            PasswordResetToken resetToken = new PasswordResetToken();
+            resetToken.setUser(user);
+            resetToken.setToken(token);
+            resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(15));
+            passwordResetTokenRepository.save(resetToken);
+
+            // actual email push notifications(TODO)
+            System.out.println("Password reset token for " + user.getEmail() + ": " + token);
+        });
+
+        return new MessageResponse("A password reset link has been sent to the designated email.");
+    }
+
+    }
