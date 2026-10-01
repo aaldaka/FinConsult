@@ -8,14 +8,13 @@ import com.example.finConsult.model.PasswordResetToken;
 import com.example.finConsult.model.Profile;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.VerificationToken;
-import com.example.finConsult.model.request.ForgetPasswordRequest;
-import com.example.finConsult.model.request.LoginRequest;
-import com.example.finConsult.model.request.RegistrationRequest;
+import com.example.finConsult.model.request.*;
 import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.model.response.Response;
 import com.example.finConsult.repository.PasswordResetTokenRepository;
 import com.example.finConsult.repository.ProfileRepository;
 import com.example.finConsult.repository.UserRepository;
+import com.example.finConsult.repository.VerificationTokenRepository;
 import com.example.finConsult.security.JWTUtils;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -37,6 +36,30 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final JWTUtils jwtUtils;
+    private final VerificationTokenRepository verificationTokenRepository;
+    private final EmailService emailService;
+
+    @Transactional
+    public MessageResponse verifyEmail(VerifyEmailRequest request) { // added link verification
+        VerificationToken verificationToken = verificationTokenRepository.findByToken(request.getToken())
+                .orElseThrow(() -> new InformationNotFound("Invalid verification token."));
+
+        if (verificationToken.isUsed()) {
+            throw new InformationIncorrect("This verification link has been used.");
+        }
+        if (verificationToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new InformationIncorrect("This verification link has expired. Resend another request.");
+        }
+
+        User user = verificationToken.getUser();
+        user.setUserStatus(ACTIVE);
+        userRepository.save(user);
+
+        verificationToken.setUsed(true);
+        verificationTokenRepository.save(verificationToken);
+
+        return new MessageResponse("Email verified successfully.");
+    }
 
     @Transactional //following ACID
     public Response register(RegistrationRequest request) {
@@ -57,8 +80,22 @@ public class AuthService {
             userProfile.setLastName(request.getLastName());
             profileRepository.save(userProfile);
 
-            //email verification token (TODO)
-// initially when registering null
+        String verifyToken = UUID.randomUUID().toString();
+        VerificationToken verificationToken = new VerificationToken();
+        verificationToken.setUser(currentUser);
+        verificationToken.setToken(verifyToken);
+        verificationToken.setExpiresAt(LocalDateTime.now().plusHours(24));
+        verificationTokenRepository.save(verificationToken);
+
+        emailService.sendEmail( //to, sub, body || send link when frontend is ready
+                currentUser.getEmail(),
+                "Verify your FinConsult email",
+//                "Please verify your email using this token: " + verifyToken + "\n\nThis token expires in 24 hours."
+                "Click to verify your email: http://localhost:8080/auth/verify-email?token=" + verifyToken
+                        + "\n\nThis link expires in 24 hours."
+        );
+
+// initially when registering null no token
         return new Response(currentUser.getId(), currentUser.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), currentUser.getRole(), null);
     }
 
@@ -80,9 +117,7 @@ public class AuthService {
 
         String token = jwtUtils.generateToken(user.getEmail());
 
-        //jwt token instead of manual response body(TODO)
         return new Response(user.getId(), user.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), user.getRole(), token);
-
     }
 
     public MessageResponse forgetPassword(ForgetPasswordRequest pswdReq){
@@ -95,11 +130,28 @@ public class AuthService {
             resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(15));
             passwordResetTokenRepository.save(resetToken);
 
-            // actual email push notifications(TODO)
-            System.out.println("Password reset token for " + user.getEmail() + ": " + token);
+            emailService.sendEmail( //send link when frontend is ready
+                    user.getEmail(),
+                    "Reset your FinConsult password",
+                    "Use this token to reset your password: " + token + "\n\nThis token expires in 15 minutes. If you didn't request this, ignore this email."
+            );
         });
 
         return new MessageResponse("A password reset link has been sent to the designated email.");
+    }
+
+    // change password method - logged in
+    @Transactional
+    public MessageResponse changePassword(String email, ChangePasswordRequest changePasswordRequest) {
+        User user = userRepository.findByEmail(email).orElseThrow(()-> new InformationNotFound("Email not found"));
+
+        if (!passwordEncoder.matches(changePasswordRequest.getCurrentPassword(), user.getPassword())){
+            throw new InformationIncorrect("Entered password (current) is incorrect.");
+        }
+
+        user.setPassword(passwordEncoder.encode(changePasswordRequest.getNewPassword())); //encode it
+        userRepository.save(user);
+        return new MessageResponse("Password changed successfully.");
     }
 
     }

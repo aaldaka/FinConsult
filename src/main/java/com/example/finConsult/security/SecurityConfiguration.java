@@ -30,7 +30,8 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth.requestMatchers(
                                         "/auth/login",
                                         "/auth/register",
-                                        "/auth/forget-password"
+                                        "/auth/forget-password",
+                                        "/auth/verify-email"
                                 ).permitAll()
                                 .anyRequest().authenticated()
                 );
