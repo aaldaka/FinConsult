@@ -2,6 +2,7 @@ package com.example.finConsult.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.Map;
@@ -25,6 +26,18 @@ public class GlobalException { // adds meta data like http codes to the existing
     public ResponseEntity<Map<String, String>> handleInformationNotFound(InformationNotFound e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(AccountNotActive.class)
+    public ResponseEntity<Map<String, String>> handleAccountNotActive(AccountNotActive e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class) // return proper code when hitting resrticted api
+    public ResponseEntity<Map<String, String>> handleAuthorizationDenied(AuthorizationDeniedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("error", "You do not have permission to access this resource"));
     }
 
     // Catch-all fallback for anything unexpected
