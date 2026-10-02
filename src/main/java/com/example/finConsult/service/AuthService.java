@@ -1,6 +1,7 @@
 package com.example.finConsult.service;
 
 
+import com.example.finConsult.exception.AccountNotActive;
 import com.example.finConsult.exception.EmailExists;
 import com.example.finConsult.exception.InformationIncorrect;
 import com.example.finConsult.exception.InformationNotFound;
@@ -8,6 +9,7 @@ import com.example.finConsult.model.PasswordResetToken;
 import com.example.finConsult.model.Profile;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.VerificationToken;
+import com.example.finConsult.model.enums.UserStatus;
 import com.example.finConsult.model.request.*;
 import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.model.response.Response;
@@ -103,13 +105,21 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new InformationIncorrect("Invalid Email or User does not exist."));
 
+        String pswd = request.getPassword();
+        if (!passwordEncoder.matches(pswd, user.getPassword())){
+            throw new InformationIncorrect("Entered password is incorrect.");
+        }
+
         if (user.isBlacklisted()) {
             throw new InformationIncorrect("This account is blocked from logging in");
         }
 
-        String pswd = request.getPassword();
-        if (!passwordEncoder.matches(pswd, user.getPassword())){
-            throw new InformationIncorrect("Entered password is incorrect.");
+        if (user.getUserStatus() == UserStatus.UNVERIFIED) {
+            throw new AccountNotActive("Please verify your email.");
+        }
+
+        if (user.getUserStatus() == UserStatus.INACTIVE) {
+            throw new AccountNotActive("This account has been deactivated");
         }
 
         Profile userProfile = profileRepository.findByUser(user)
