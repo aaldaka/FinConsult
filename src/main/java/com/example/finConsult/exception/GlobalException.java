@@ -40,6 +40,12 @@ public class GlobalException { // adds meta data like http codes to the existing
                 .body(Map.of("error", "You do not have permission to access this resource"));
     }
 
+    @ExceptionHandler(InvalidRequest.class)
+    public ResponseEntity<Map<String, String>> handleInvalidRequest(InvalidRequest e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", e.getMessage()));
+    }
+
     // Catch-all fallback for anything unexpected
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGeneric(Exception e) {

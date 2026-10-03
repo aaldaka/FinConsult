@@ -9,4 +9,5 @@ import java.util.List;
 
 public interface AvailabilitySlotRepository extends JpaRepository<AvailabilitySlot, Long> {
     List<AvailabilitySlot> findByAdvisorAndStatus(Advisor advisor, SlotStatus status);
+    List<AvailabilitySlot> findByAdvisor(Advisor advisor); //checking any slot overlaps
 }
