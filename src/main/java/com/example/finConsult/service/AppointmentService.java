@@ -1,5 +1,6 @@
 package com.example.finConsult.service;
 
+import com.example.finConsult.exception.InformationIncorrect;
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
 import com.example.finConsult.model.*;
@@ -22,6 +23,7 @@ public class AppointmentService {
     private final NotificationRepository notificationRepository;
     private final AdvisorRepository advisorRepository;
     private final ServiceTypeRepository serviceTypeRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public Appointment bookSlot(User client, Long slotId, Long serviceId) {
@@ -101,5 +103,56 @@ public class AppointmentService {
                 .orElseThrow(() -> new InformationNotFound("Advisor not found"));
 
         return appointmentRepository.findByAdvisor(advisor);
+    }
+
+    @Transactional
+    public Appointment markNoShow(Long advisorId, Long appointmentId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new InformationNotFound("Appointment not found"));
+
+        if (!appointment.getAdvisor().getId().equals(advisorId)) {
+            throw new InvalidRequest("You can only mark your own appointments");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+            throw new InvalidRequest("Only confirmed appointments can be marked as no-show");
+        }
+
+        if (appointment.getSlot().getStartTime().plusMinutes(20).isAfter(LocalDateTime.now())) {
+            throw new InvalidRequest("Cannot mark no-show until 15 minutes after the appointment start time");
+        }
+
+        appointment.setStatus(AppointmentStatus.NO_SHOW);
+        appointmentRepository.save(appointment);
+
+        User client = appointment.getClient();
+        client.setNoShowStrikes(client.getNoShowStrikes()+ 1);
+
+        if (client.getNoShowStrikes() >= 3) {
+            client.setBlacklisted(true);
+        }
+
+        userRepository.save(client);
+        return appointment;
+
+    }
+
+    @Transactional
+    public Appointment excuseNoShow(Long appointmentId, String reason) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new InformationNotFound("Appointment not found"));
+
+        if (!appointment.getStatus().equals(AppointmentStatus.NO_SHOW)){
+            throw new InvalidRequest("Appointment was not marked as a No-Show");
+        }
+
+        User client = appointment.getClient();
+        appointment.setExcused(true);
+        appointment.setExcuseReason(reason);
+        client.setNoShowStrikes(client.getNoShowStrikes()>0? client.getNoShowStrikes() - 1 : 0 );
+        client.setBlacklisted(client.getNoShowStrikes() >=3);
+
+        userRepository.save(client);
+        return appointmentRepository.save(appointment);
     }
 }
