@@ -71,6 +71,10 @@ public class AdvisorService {
         advisor.setActive(false);
         advisorRepository.save(advisor);
 
+        User advisorUser = advisor.getUser();
+        advisorUser.setUserStatus(UserStatus.INACTIVE);
+        userRepository.save(advisorUser);
+
         List<Appointment> upcoming = appointmentRepository
                 .findByAdvisorAndStatusIn(advisor, List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED));
 

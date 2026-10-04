@@ -117,7 +117,7 @@ public class AppointmentService {
         if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
             throw new InvalidRequest("Only confirmed appointments can be marked as no-show");
         }
-
+// optional (unmark for testing)
         if (appointment.getSlot().getStartTime().plusMinutes(20).isAfter(LocalDateTime.now())) {
             throw new InvalidRequest("Cannot mark no-show until 15 minutes after the appointment start time");
         }
