@@ -22,7 +22,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/slots")
 @RequiredArgsConstructor
-public class AvailabilitySlotController {
+public class AvailabilitySlotController { //posting the slot
     private final AdvisorRepository advisorRepository;
     private final AvailabilitySlotService availabilitySlotService;
 
