@@ -137,7 +137,7 @@ public class AuthService {
             PasswordResetToken resetToken = new PasswordResetToken();
             resetToken.setUser(user);
             resetToken.setToken(token);
-            resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(15));
+            resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(5));
             passwordResetTokenRepository.save(resetToken);
 
             emailService.sendEmail( //send link when frontend is ready

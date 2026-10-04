@@ -6,7 +6,7 @@ import com.example.finConsult.model.Appointment;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.UserRole;
 import com.example.finConsult.model.request.BookAppointmentRequest;
-import com.example.finConsult.model.request.CancelAppointmentRequest;
+import com.example.finConsult.model.request.ReasonRequest;
 import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.repository.AdvisorRepository;
 import com.example.finConsult.security.MyUserDetails;
@@ -44,7 +44,7 @@ public class AppointmentController { // patch to partially update things instead
     }
 
     @PatchMapping("/{id}/cancel")
-    public ResponseEntity<?> cancelAppointment(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id, @RequestBody CancelAppointmentRequest request) {
+    public ResponseEntity<?> cancelAppointment(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id, @RequestBody ReasonRequest request) {
         User user = ((MyUserDetails) userDetails).getUser();
         appointmentService.cancelAppointment(id, request.getReason(), user);
         return ResponseEntity.ok(new MessageResponse("Appointment cancelled"));
@@ -61,5 +61,20 @@ public class AppointmentController { // patch to partially update things instead
         } else {
             return ResponseEntity.ok(appointmentService.getClientAppointments(user));
         }
+    }
+
+    @PatchMapping("/{id}/no-show")
+    @PreAuthorize("hasRole('ADVISOR')")
+    public ResponseEntity<?> markNoShow(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id) {
+        User user = ((MyUserDetails) userDetails).getUser();
+        Advisor advisor = advisorRepository.findByUser(user)
+                .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
+        return ResponseEntity.ok(appointmentService.markNoShow(advisor.getId(), id));
+    }
+
+    @PatchMapping("/{id}/excuse")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> excuseNoShow(@PathVariable Long id, @RequestBody ReasonRequest request) {
+        return ResponseEntity.ok(appointmentService.excuseNoShow(id, request.getReason()));
     }
 }

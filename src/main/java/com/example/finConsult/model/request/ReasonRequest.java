@@ -5,6 +5,6 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class CancelAppointmentRequest {
+public class ReasonRequest {
     private String reason;
 }
