@@ -5,6 +5,7 @@ import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
 import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.AppointmentStatus;
+import com.example.finConsult.model.enums.NotificationType;
 import com.example.finConsult.model.enums.SlotStatus;
 import com.example.finConsult.repository.*;
 import jakarta.transaction.Transactional;
@@ -90,6 +91,14 @@ public class AppointmentService {
         availabilitySlotRepository.save(slot);
 
         // notification for both advisor and client that the appointment has been cancelled (TODO)
+        User whoToNotify = isClient ? appointment.getAdvisor().getUser() : appointment.getClient(); //notify the other party of the cancellation
+        Notification notif = new Notification();
+        notif.setUser(whoToNotify);
+        notif.setRelatedAppointment(appointment);
+        notif.setType(NotificationType.APPOINTMENT_CANCELLED);
+        notif.setMessage("The appointment with ID: " + appointmentId + " has been cancelled due to: "+ reason);
+        notificationRepository.save(notif);
+
     }
 
     // List appointments for a client
