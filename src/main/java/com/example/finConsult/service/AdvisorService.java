@@ -5,6 +5,7 @@ import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.*;
 import com.example.finConsult.model.request.AdvisorRequest;
+import com.example.finConsult.model.request.UpdateAdvisorRequest;
 import com.example.finConsult.repository.*;
 import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +27,7 @@ public class AdvisorService {
     private final ProfileRepository profileRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Transactional
     public Advisor createAdvisor(AdvisorRequest req) {
         if (userRepository.existsByEmail(req.getEmail())) {
             throw new EmailExists("An account with this email already exists");
@@ -85,11 +87,29 @@ public class AdvisorService {
             notif.setUser(appt.getClient());
             notif.setType(NotificationType.APPOINTMENT_CANCELLED);
             notif.setMessage("Your appointment with " + advisor.getTitle() +
-                    " was cancelled because the advisor is no longer available. Please book with another advisor or time.");
+                    " was cancelled because the advisor is no longer available. Please book with another advisor");
             notif.setRelatedAppointment(appt);
             notificationRepository.save(notif);
         }
     }
 
-    // TODO: updateAdvisor(...) — edit title/bio/specialty (no bio)
+    @Transactional
+    public Advisor updateAdvisor(User user, UpdateAdvisorRequest updateAdvisorRequest){
+        Advisor advisor = advisorRepository.findByUser(user)
+                .orElseThrow(() -> new InformationNotFound("Advisor profile was not found"));
+
+        if(updateAdvisorRequest.getSpecialty()!=null){
+            advisor.setSpecialty(updateAdvisorRequest.getSpecialty());
+        }
+
+        if(updateAdvisorRequest.getTitle()!=null){
+            advisor.setTitle(updateAdvisorRequest.getTitle());
+        }
+
+        if(updateAdvisorRequest.getYearsOfExperience()!=null){
+            advisor.setYearsOfExperience(updateAdvisorRequest.getYearsOfExperience());
+        }
+        advisorRepository.save(advisor);
+        return advisor;
+    }
 }
