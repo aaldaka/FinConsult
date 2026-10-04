@@ -29,7 +29,7 @@ public class Appointment extends BaseEntity {
     private ServiceType serviceType;
 
     @OneToOne
-    @JoinColumn(name = "slot_id", nullable = false, unique = true)
+    @JoinColumn(name = "slot_id", nullable = false)
     private AvailabilitySlot slot;
 
     @Enumerated(EnumType.STRING)

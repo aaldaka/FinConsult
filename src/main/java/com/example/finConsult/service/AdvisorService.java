@@ -91,5 +91,5 @@ public class AdvisorService {
         }
     }
 
-    // TODO: updateAdvisor(...) — edit title/bio/specialty
+    // TODO: updateAdvisor(...) — edit title/bio/specialty (no bio)
 }

@@ -2,16 +2,10 @@ package com.example.finConsult.service;
 
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
-import com.example.finConsult.model.Advisor;
-import com.example.finConsult.model.Appointment;
-import com.example.finConsult.model.AvailabilitySlot;
-import com.example.finConsult.model.User;
+import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.AppointmentStatus;
 import com.example.finConsult.model.enums.SlotStatus;
-import com.example.finConsult.repository.AdvisorRepository;
-import com.example.finConsult.repository.AppointmentRepository;
-import com.example.finConsult.repository.AvailabilitySlotRepository;
-import com.example.finConsult.repository.NotificationRepository;
+import com.example.finConsult.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,9 +21,10 @@ public class AppointmentService {
     private final AvailabilitySlotRepository availabilitySlotRepository;
     private final NotificationRepository notificationRepository;
     private final AdvisorRepository advisorRepository;
+    private final ServiceTypeRepository serviceTypeRepository;
 
     @Transactional
-    public Appointment bookSlot(User client, Long slotId) {
+    public Appointment bookSlot(User client, Long slotId, Long serviceId) {
         AvailabilitySlot slot = availabilitySlotRepository.findById(slotId)
                 .orElseThrow(() -> new InformationNotFound("Slot not found"));
 
@@ -37,12 +32,15 @@ public class AppointmentService {
             throw new InvalidRequest("This slot is no longer available");
         }
 
+        ServiceType serviceType = serviceTypeRepository.findById(serviceId)
+                .orElseThrow(() -> new InformationNotFound("Service type not found"));
+
         Appointment appointment = new Appointment();
         appointment.setClient(client);
         appointment.setAdvisor(slot.getAdvisor());
         appointment.setSlot(slot);
+        appointment.setServiceType(serviceType);
         appointment.setStatus(AppointmentStatus.PENDING);
-
         slot.setStatus(SlotStatus.BOOKED);
         availabilitySlotRepository.save(slot);
 
