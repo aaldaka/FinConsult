@@ -4,5 +4,6 @@ public enum NotificationType {
     APPOINTMENT_BOOKED,
     APPOINTMENT_CONFIRMED,
     APPOINTMENT_CANCELLED,
-    KYC_REVIEWED // approved/ rejected the docs
+    KYC_REVIEWED, // approved/ rejected the docs
+    APPOINTMENT_NO_SHOW //to alert client about strike counts
 }
