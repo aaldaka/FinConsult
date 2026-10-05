@@ -8,9 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
@@ -28,6 +26,12 @@ public class NotificationController {
     public ResponseEntity<?> getMyUnreadNotifications(@AuthenticationPrincipal UserDetails userDetails) {
         User user = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.ok(notificationService.getMyUnreadNotifications(user));
+    }
+
+    @PatchMapping("/{id}/read")
+    public ResponseEntity<?> markAsRead(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id) {
+        User user = ((MyUserDetails) userDetails).getUser();
+        return ResponseEntity.ok(notificationService.markAsRead(id, user));
     }
 
 }

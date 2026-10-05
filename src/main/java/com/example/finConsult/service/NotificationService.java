@@ -23,4 +23,18 @@ public class NotificationService {
         return notificationRepository.findByUserAndIsReadFalse(user);
     }
 
+    @Transactional
+    public Notification markAsRead(Long notificationId, User user) {
+        Notification notification = notificationRepository.findById(notificationId)
+                .orElseThrow(() -> new InformationNotFound("Notification not found"));
+
+        if (!notification.getUser().getId().equals(user.getId())) { //avoids an authenticated user entering other ppl' notif
+            throw new InvalidRequest("This is not your notification");
+        }
+
+        notification.setRead(true);
+        return notificationRepository.save(notification);
+    }
+
+
 }
