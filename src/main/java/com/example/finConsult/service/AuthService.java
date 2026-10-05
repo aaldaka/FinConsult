@@ -80,6 +80,7 @@ public class AuthService {
             userProfile.setUser(currentUser); //newly registered/created user
             userProfile.setFirstName(request.getFirstName());
             userProfile.setLastName(request.getLastName());
+            userProfile.setProfilePicturePath("/default.jpg"); //added default upon creation
             profileRepository.save(userProfile);
 
         String verifyToken = UUID.randomUUID().toString();

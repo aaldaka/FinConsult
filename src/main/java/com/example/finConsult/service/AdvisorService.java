@@ -52,6 +52,7 @@ public class AdvisorService {
         advisor.setSpecialty(req.getSpecialty() != null ? req.getSpecialty() : Specialty.GENERAL);
         advisor.setYearsOfExperience(req.getYearsOfExperience());
         advisor.setActive(true);
+        profile.setProfilePicturePath("/default.jpg");
         // wire functionality of requesting to become an advisor throuh application
         return advisorRepository.save(advisor);
     }
