@@ -79,3 +79,4 @@ Explain the major technical problems you encountered and how you solved them.
 Major banks/entities as clients
 Payment gateway
 Advisor applications will be verified ie their credentials and qualifications
+AI agent to help with inquiries, if a general advisor is unavailable he'll be there, Detects sensitive info like Salary, ID etc and doesnt save the session data 
