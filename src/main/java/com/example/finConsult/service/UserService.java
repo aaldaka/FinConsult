@@ -7,19 +7,11 @@ import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.AppointmentStatus;
 import com.example.finConsult.model.enums.UserRole;
 import com.example.finConsult.model.enums.UserStatus;
-import com.example.finConsult.model.request.ReasonRequest;
-import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.repository.AppointmentRepository;
 import com.example.finConsult.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-
 import java.util.List;
 
 @Service
