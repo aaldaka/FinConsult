@@ -228,4 +228,31 @@ public class AppointmentService {
 
         return appointmentRepository.save(appointment);
     }
+
+    //admin gated, no role checks
+    @Transactional
+    public void adminCancelAppointment(Long appointmentId, String reason) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new InformationNotFound("Appointment not found"));
+
+        if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW)) {
+            throw new InvalidRequest("Cannot cancel an appointment that is marked as Cancelled or No Show");
+        }
+
+        appointment.setStatus(AppointmentStatus.CANCELLED);
+        appointment.setCancelledAt(LocalDateTime.now());
+        appointment.setCancellationReason(reason);
+        appointmentRepository.save(appointment);
+
+        AvailabilitySlot slot = appointment.getSlot();
+        slot.setStatus(SlotStatus.AVAILABLE);
+        availabilitySlotRepository.save(slot);
+
+        Notification notif = new Notification();
+        notif.setUser(appointment.getAdvisor().getUser());
+        notif.setRelatedAppointment(appointment);
+        notif.setType(NotificationType.APPOINTMENT_CANCELLED);
+        notif.setMessage("The appointment with ID: " + appointmentId + " has been cancelled due to: " + reason);
+        notificationRepository.save(notif);
+    }
 }

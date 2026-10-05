@@ -32,13 +32,6 @@ public class AdvisorController {
         return ResponseEntity.ok(advisorService.updateAdvisor(user, updateAdvisorRequest));
     }
 
-    @PatchMapping("/advisors/{id}/deactivate")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> deactivateAdvisor(@PathVariable Long id, @RequestBody ReasonRequest request) {
-        advisorService.deactivateAdvisor(id, request.getReason());
-        return ResponseEntity.ok(new MessageResponse("Advisor deactivated"));
-    }
-
     @GetMapping("/{id}")
     public ResponseEntity<?> getAdvisor(@PathVariable Long id) {
         return ResponseEntity.ok(advisorService.getById(id));
