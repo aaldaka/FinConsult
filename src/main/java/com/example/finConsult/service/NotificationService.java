@@ -19,5 +19,8 @@ public class NotificationService {
         return notificationRepository.findByUser(user);
     }
 
+    public List<Notification> getMyUnreadNotifications(User user) {
+        return notificationRepository.findByUserAndIsReadFalse(user);
+    }
 
 }
