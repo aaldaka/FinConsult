@@ -1,15 +1,8 @@
 package com.example.finConsult.controller;
 
-import com.example.finConsult.exception.InformationNotFound;
-import com.example.finConsult.model.Advisor;
-import com.example.finConsult.model.AvailabilitySlot;
 import com.example.finConsult.model.User;
-import com.example.finConsult.model.enums.Specialty;
-import com.example.finConsult.model.request.CreateSlotRequest;
-import com.example.finConsult.model.request.ReasonRequest;
+import com.example.finConsult.model.enums.Specialty;;
 import com.example.finConsult.model.request.UpdateAdvisorRequest;
-import com.example.finConsult.model.response.MessageResponse;
-import com.example.finConsult.repository.AdvisorRepository;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.AdvisorService;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +30,7 @@ public class AdvisorController {
         return ResponseEntity.ok(advisorService.getById(id));
     }
 
-    @GetMapping
+    @GetMapping // can have specific advisors otherwise all
     public ResponseEntity<?> searchAdvisors(@RequestParam(required = false) Specialty specialty) {
         if (specialty != null) {
             return ResponseEntity.ok(advisorService.findBySpecialty(specialty));

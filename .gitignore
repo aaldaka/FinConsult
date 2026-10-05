@@ -33,5 +33,7 @@ build/
 **/application-test.properties
 **/application.properties
 
+**/uploads
+
 ### VS Code ###
 .vscode/
