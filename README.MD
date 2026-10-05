@@ -76,5 +76,6 @@ Document any unresolved issues.
 Explain the major technical problems you encountered and how you solved them.
 
 ### Future Improvements
-
-Explain what you would add if you had more time.
+Major banks/entities as clients
+Payment gateway
+Advisor applications will be verified ie their credentials and qualifications

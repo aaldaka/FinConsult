@@ -6,7 +6,9 @@ import com.example.finConsult.model.AvailabilitySlot;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.Specialty;
 import com.example.finConsult.model.request.CreateSlotRequest;
+import com.example.finConsult.model.request.ReasonRequest;
 import com.example.finConsult.model.request.UpdateAdvisorRequest;
+import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.repository.AdvisorRepository;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.AdvisorService;
@@ -28,6 +30,13 @@ public class AdvisorController {
     public ResponseEntity<?> updateAdvisor(@AuthenticationPrincipal UserDetails userDetails, @RequestBody UpdateAdvisorRequest updateAdvisorRequest) {
         User user = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.ok(advisorService.updateAdvisor(user, updateAdvisorRequest));
+    }
+
+    @PatchMapping("/advisors/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deactivateAdvisor(@PathVariable Long id, @RequestBody ReasonRequest request) {
+        advisorService.deactivateAdvisor(id, request.getReason());
+        return ResponseEntity.ok(new MessageResponse("Advisor deactivated"));
     }
 
     @GetMapping("/{id}")

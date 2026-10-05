@@ -46,7 +46,7 @@ public class AppointmentController { // patch to partially update things instead
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<?> cancelAppointment(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id, @RequestBody ReasonRequest request) {
         User user = ((MyUserDetails) userDetails).getUser();
-        appointmentService.cancelAppointment(id, request.getReason(), user);
+        appointmentService.cancelAppointment(id, user);
         return ResponseEntity.ok(new MessageResponse("Appointment cancelled"));
     }
 

@@ -29,12 +29,4 @@ public class UserService {
         user.setUserStatus(UserStatus.INACTIVE);
         userRepository.save(user);
     }
-
-    @PatchMapping("/advisors/{id}/deactivate")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> deactivateAdvisor(@PathVariable Long id, @RequestBody ReasonRequest request) {
-        advisorService.deactivateAdvisor(id, request.getReason());
-        return ResponseEntity.ok(new MessageResponse("Advisor deactivated"));
-    }
-
 }

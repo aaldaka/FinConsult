@@ -1,6 +1,5 @@
 package com.example.finConsult.service;
 
-import com.example.finConsult.exception.InformationIncorrect;
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
 import com.example.finConsult.model.*;
@@ -18,6 +17,7 @@ import java.util.List;
 @Service
 @AllArgsConstructor
 public class AppointmentService {
+    private static final int CANCELLATION_STRIKE_WINDOW_HOURS = 24;
 
     private final AppointmentRepository appointmentRepository;
     private final AvailabilitySlotRepository availabilitySlotRepository;
@@ -47,7 +47,15 @@ public class AppointmentService {
         slot.setStatus(SlotStatus.BOOKED);
         availabilitySlotRepository.save(slot);
 
-        return appointmentRepository.save(appointment);
+        // an advisor gets notified so they can confirm their availability for the booked slot
+        Notification notif = new Notification();
+        notif.setUser(slot.getAdvisor().getUser());
+        notif.setType(NotificationType.APPOINTMENT_BOOKED);
+        notif.setMessage("Client: " + client.getId() + " has booked an appointment. Pending your confirmation.");
+        notif.setRelatedAppointment(appointment);
+        notificationRepository.save(notif);
+
+        return appointment;
     }
 
     // advisor agrees to the booked slot (Gets notified)
@@ -65,11 +73,20 @@ public class AppointmentService {
         }
 
         appointment.setStatus(AppointmentStatus.CONFIRMED);
+
+        // client gets notified of the cofirmed appointment
+        Notification notif = new Notification();
+        notif.setUser(appointment.getClient());
+        notif.setType(NotificationType.APPOINTMENT_CONFIRMED);
+        notif.setMessage("Your appointment has been confirmed!");
+        notif.setRelatedAppointment(appointment);
+        notificationRepository.save(notif);
+
         return appointmentRepository.save(appointment);
     }
 
     @Transactional
-    public void cancelAppointment(Long appointmentId, String reason, User cancelledBy) {
+    public void cancelAppointment(Long appointmentId, User cancelledBy) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new InformationNotFound("Appointment not found"));
 
@@ -81,16 +98,44 @@ public class AppointmentService {
             throw new InvalidRequest("You are not authorized to cancel this appointment");
         }
 
+        if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW)){
+            throw new InvalidRequest("Cannot cancel an appointment that is marked as Cancelled or No Show");
+        }
+
         appointment.setStatus(AppointmentStatus.CANCELLED);
-        appointment.setCancellationReason(reason);
         appointment.setCancelledAt(LocalDateTime.now());
+        String reason;
+
+        if (isAdvisor) {
+            reason ="Cancelled by Advisor";
+        }
+        else if (LocalDateTime.now().isBefore(appointment.getSlot().getStartTime().minusHours(CANCELLATION_STRIKE_WINDOW_HOURS))){
+            reason= "Cancelled by Client";
+
+            } else {// if the current time is before the appointment (minus a day) ie u met the minimum required for the cancellation
+                reason = "Cancelled by Client less than the accepted cancellation window";
+                User client = appointment.getClient();
+                client.setNoShowStrikes(client.getNoShowStrikes() + 1);
+
+            if (client.getNoShowStrikes() >= 3) {
+                client.setBlacklisted(true);
+            }
+            userRepository.save(client);
+
+            Notification notif = new Notification();
+            notif.setUser(client);
+            notif.setRelatedAppointment(appointment);
+            notif.setType(NotificationType.APPOINTMENT_NO_SHOW);
+            notif.setMessage("You cancelled your: "+ appointmentId + " appointment less than the acceptable 24-Hour window. Your strikes are: "+ client.getNoShowStrikes() + " /3");
+            notificationRepository.save(notif);
+        }
+
         appointmentRepository.save(appointment);
 
         AvailabilitySlot slot = appointment.getSlot();
         slot.setStatus(SlotStatus.AVAILABLE);
         availabilitySlotRepository.save(slot);
 
-        // notification for both advisor and client that the appointment has been cancelled (TODO)
         User whoToNotify = isClient ? appointment.getAdvisor().getUser() : appointment.getClient(); //notify the other party of the cancellation
         Notification notif = new Notification();
         notif.setUser(whoToNotify);
@@ -98,6 +143,7 @@ public class AppointmentService {
         notif.setType(NotificationType.APPOINTMENT_CANCELLED);
         notif.setMessage("The appointment with ID: " + appointmentId + " has been cancelled due to: "+ reason);
         notificationRepository.save(notif);
+
 
     }
 
@@ -142,8 +188,15 @@ public class AppointmentService {
         }
 
         userRepository.save(client);
-        return appointment;
 
+        Notification notif = new Notification();
+        notif.setUser(client);
+        notif.setRelatedAppointment(appointment);
+        notif.setType(NotificationType.APPOINTMENT_NO_SHOW);
+        notif.setMessage("You were marked as No Show for your: "+ appointmentId + " appointment. Your strikes are: "+ client.getNoShowStrikes() + " /3");
+        notificationRepository.save(notif);
+
+        return appointment;
     }
 
     @Transactional
@@ -158,10 +211,18 @@ public class AppointmentService {
         User client = appointment.getClient();
         appointment.setExcused(true);
         appointment.setExcuseReason(reason);
-        client.setNoShowStrikes(client.getNoShowStrikes()>0? client.getNoShowStrikes() - 1 : 0 );
-        client.setBlacklisted(client.getNoShowStrikes() >=3);
+        client.setNoShowStrikes(client.getNoShowStrikes() > 0 ? client.getNoShowStrikes() - 1 : 0 );
+        client.setBlacklisted(client.getNoShowStrikes() >= 3);
 
         userRepository.save(client);
+
+        Notification excuseNotification = new Notification();
+        excuseNotification.setUser(client);
+        excuseNotification.setType(NotificationType.APPOINTMENT_NO_SHOW);
+        excuseNotification.setMessage("Your No Show was excused. Reason: " + reason);
+        excuseNotification.setRelatedAppointment(appointment);
+        notificationRepository.save(excuseNotification);
+
         return appointmentRepository.save(appointment);
     }
 }
