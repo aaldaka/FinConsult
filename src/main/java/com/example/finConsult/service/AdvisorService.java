@@ -21,11 +21,11 @@ public class AdvisorService {
 
     private final AdvisorRepository advisorRepository;
     private final AppointmentRepository appointmentRepository;
-    private final AvailabilitySlotRepository availabilitySlotRepository;
-    private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AppointmentService appointmentService;
+
 
     @Transactional
     public Advisor createAdvisor(AdvisorRequest req) {
@@ -79,22 +79,9 @@ public class AdvisorService {
                 .findByAdvisorAndStatusIn(advisor, List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED));
 
         for (Appointment appt : upcoming) {
-            appt.setStatus(AppointmentStatus.CANCELLED);
-            appt.setCancellationReason("Advisor is no longer available: " + reason);
-            appt.setCancelledAt(LocalDateTime.now());
-            appointmentRepository.save(appt);
-
-            appt.getSlot().setStatus(SlotStatus.AVAILABLE);
-            availabilitySlotRepository.save(appt.getSlot());
-
-            Notification notif = new Notification();
-            notif.setUser(appt.getClient());
-            notif.setType(NotificationType.APPOINTMENT_CANCELLED);
-            notif.setMessage("Your appointment with " + advisor.getTitle() +
-                    " was cancelled because the advisor is no longer available. Please book with another advisor");
-            notif.setRelatedAppointment(appt);
-            notificationRepository.save(notif);
+            appointmentService.cancelAppointment(appt.getId(), advisorUser, "Advisor is no longer available: " + reason);
         }
+
     }
 
     @Transactional

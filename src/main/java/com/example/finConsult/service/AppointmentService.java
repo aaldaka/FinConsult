@@ -26,6 +26,10 @@ public class AppointmentService {
     private final ServiceTypeRepository serviceTypeRepository;
     private final UserRepository userRepository;
 
+    public void cancelAppointment(Long appointmentId, User cancelledBy) {
+        cancelAppointment(appointmentId, cancelledBy, null);
+    }
+
     @Transactional
     public Appointment bookSlot(User client, Long slotId, Long serviceId) {
         AvailabilitySlot slot = availabilitySlotRepository.findById(slotId)
@@ -86,7 +90,7 @@ public class AppointmentService {
     }
 
     @Transactional
-    public void cancelAppointment(Long appointmentId, User cancelledBy) {
+    public void cancelAppointment(Long appointmentId, User cancelledBy, String additionalNotes) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new InformationNotFound("Appointment not found"));
 
@@ -107,13 +111,14 @@ public class AppointmentService {
         String reason;
 
         if (isAdvisor) {
-            reason ="Cancelled by Advisor";
-        }
+            reason = additionalNotes != null ? additionalNotes : "Cancelled by Advisor";
+        } // if the current time is before the appointment (minus a day) ie u met the minimum required for the cancellation
         else if (LocalDateTime.now().isBefore(appointment.getSlot().getStartTime().minusHours(CANCELLATION_STRIKE_WINDOW_HOURS))){
-            reason= "Cancelled by Client";
+            reason = additionalNotes != null ? additionalNotes : "Cancelled by Client";
 
             } else {// if the current time is before the appointment (minus a day) ie u met the minimum required for the cancellation
-                reason = "Cancelled by Client less than the accepted cancellation window";
+            reason = "Cancelled by Client less than the accepted cancellation window"
+                    + (additionalNotes != null ? " — reason given: " + additionalNotes : "");
                 User client = appointment.getClient();
                 client.setNoShowStrikes(client.getNoShowStrikes() + 1);
 
@@ -143,8 +148,6 @@ public class AppointmentService {
         notif.setType(NotificationType.APPOINTMENT_CANCELLED);
         notif.setMessage("The appointment with ID: " + appointmentId + " has been cancelled due to: "+ reason);
         notificationRepository.save(notif);
-
-
     }
 
     // List appointments for a client
