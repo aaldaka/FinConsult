@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    List<Notification> findByUserAndIsReadFalse(User user);
+    List<Notification> findByUserAndIsReadFalse(User user); //unread notif ie boolean is false
+    List<Notification> findByUser(User user);
 }
