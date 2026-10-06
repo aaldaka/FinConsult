@@ -8,6 +8,8 @@ public enum AuditAction {
     APPOINTMENT_NO_SHOW,
     NO_SHOW_EXCUSED,
     USER_DEACTIVATED,
-    ADVISOR_DEACTIVATED
-    //kyc related (add in kyc branch)
+    ADVISOR_DEACTIVATED,
+    KYC_SUBMITTED,
+    KYC_APPROVED,
+    KYC_REJECTED
 }
