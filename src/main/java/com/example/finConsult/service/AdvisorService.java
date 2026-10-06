@@ -25,7 +25,7 @@ public class AdvisorService {
     private final ProfileRepository profileRepository;
     private final PasswordEncoder passwordEncoder;
     private final AppointmentService appointmentService;
-
+    private final AuditLogService auditLogService;
 
     @Transactional
     public Advisor createAdvisor(AdvisorRequest req) {
@@ -67,7 +67,7 @@ public class AdvisorService {
     }
 
     @Transactional
-    public void deactivateAdvisor(Long advisorId, String reason) {
+    public void deactivateAdvisor(Long advisorId, String reason, User admin) {
         Advisor advisor = getById(advisorId);
         advisor.setActive(false);
         advisorRepository.save(advisor);
@@ -75,6 +75,9 @@ public class AdvisorService {
         User advisorUser = advisor.getUser();
         advisorUser.setUserStatus(UserStatus.INACTIVE);
         userRepository.save(advisorUser);
+
+        auditLogService.log(admin, AuditAction.ADVISOR_DEACTIVATED, "Advisor", advisorId, "Reason: " + reason);
+
 
         List<Appointment> upcoming = appointmentRepository
                 .findByAdvisorAndStatusIn(advisor, List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED));
