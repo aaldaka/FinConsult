@@ -46,7 +46,7 @@ public class AppointmentController { // patch to partially update things instead
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<?> cancelAppointment(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id, @RequestBody ReasonRequest request) {
         User user = ((MyUserDetails) userDetails).getUser();
-        appointmentService.cancelAppointment(id, user);
+        appointmentService.cancelAppointment(id, user, request.getReason());
         return ResponseEntity.ok(new MessageResponse("Appointment cancelled"));
     }
 
@@ -74,7 +74,8 @@ public class AppointmentController { // patch to partially update things instead
 
     @PatchMapping("/{id}/excuse")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> excuseNoShow(@PathVariable Long id, @RequestBody ReasonRequest request) {
-        return ResponseEntity.ok(appointmentService.excuseNoShow(id, request.getReason()));
+    public ResponseEntity<?> excuseNoShow(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id, @RequestBody ReasonRequest request) {
+        User admin = ((MyUserDetails) userDetails).getUser();
+        return ResponseEntity.ok(appointmentService.excuseNoShow(id, request.getReason(), admin));
     }
 }

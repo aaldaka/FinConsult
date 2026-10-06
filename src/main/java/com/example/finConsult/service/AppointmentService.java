@@ -4,6 +4,7 @@ import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
 import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.AppointmentStatus;
+import com.example.finConsult.model.enums.AuditAction;
 import com.example.finConsult.model.enums.NotificationType;
 import com.example.finConsult.model.enums.SlotStatus;
 import com.example.finConsult.repository.*;
@@ -25,7 +26,9 @@ public class AppointmentService {
     private final AdvisorRepository advisorRepository;
     private final ServiceTypeRepository serviceTypeRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
+    @Transactional
     public void cancelAppointment(Long appointmentId, User cancelledBy) {
         cancelAppointment(appointmentId, cancelledBy, null);
     }
@@ -135,7 +138,9 @@ public class AppointmentService {
             notificationRepository.save(notif);
         }
 
+        appointment.setCancellationReason(reason);
         appointmentRepository.save(appointment);
+        auditLogService.log(cancelledBy, AuditAction.APPOINTMENT_CANCELLED, "Appointment", appointmentId, reason);
 
         AvailabilitySlot slot = appointment.getSlot();
         slot.setStatus(SlotStatus.AVAILABLE);
@@ -177,7 +182,7 @@ public class AppointmentService {
         }
 // optional (unmark for testing)
         if (appointment.getSlot().getStartTime().plusMinutes(20).isAfter(LocalDateTime.now())) {
-            throw new InvalidRequest("Cannot mark no-show until 15 minutes after the appointment start time");
+            throw new InvalidRequest("Cannot mark No Show until 20 minutes has passed from the appointment start time");
         }
 
         appointment.setStatus(AppointmentStatus.NO_SHOW);
@@ -191,6 +196,8 @@ public class AppointmentService {
         }
 
         userRepository.save(client);
+        auditLogService.log(appointment.getAdvisor().getUser(), AuditAction.APPOINTMENT_NO_SHOW,
+                "Appointment", appointmentId, "Marked no-show; client strikes: " + client.getNoShowStrikes());
 
         Notification notif = new Notification();
         notif.setUser(client);
@@ -203,7 +210,7 @@ public class AppointmentService {
     }
 
     @Transactional
-    public Appointment excuseNoShow(Long appointmentId, String reason) {
+    public Appointment excuseNoShow(Long appointmentId, String reason, User admin) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new InformationNotFound("Appointment not found"));
 
@@ -218,6 +225,8 @@ public class AppointmentService {
         client.setBlacklisted(client.getNoShowStrikes() >= 3);
 
         userRepository.save(client);
+        auditLogService.log(admin, AuditAction.NO_SHOW_EXCUSED, "Appointment", appointmentId,
+                "No show excused: " + reason + "; client strikes: " + client.getNoShowStrikes());
 
         Notification excuseNotification = new Notification();
         excuseNotification.setUser(client);
@@ -231,7 +240,7 @@ public class AppointmentService {
 
     //admin gated, no role checks
     @Transactional
-    public void adminCancelAppointment(Long appointmentId, String reason) {
+    public void adminCancelAppointment(Long appointmentId, String reason, User admin) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new InformationNotFound("Appointment not found"));
 
@@ -247,6 +256,8 @@ public class AppointmentService {
         AvailabilitySlot slot = appointment.getSlot();
         slot.setStatus(SlotStatus.AVAILABLE);
         availabilitySlotRepository.save(slot);
+
+        auditLogService.log(admin, AuditAction.APPOINTMENT_CANCELLED_BY_ADMIN, "Appointment", appointmentId, reason);
 
         Notification notif = new Notification();
         notif.setUser(appointment.getAdvisor().getUser());
