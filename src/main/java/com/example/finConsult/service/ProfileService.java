@@ -4,6 +4,7 @@ import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
 import com.example.finConsult.model.Profile;
 import com.example.finConsult.model.User;
+import com.example.finConsult.model.enums.AuditAction;
 import com.example.finConsult.model.request.UpdateProfileRequest;
 import com.example.finConsult.model.response.ProfileUpdateResponse;
 import com.example.finConsult.repository.ProfileRepository;
@@ -19,10 +20,11 @@ import java.util.List;
 public class ProfileService {
     private final ProfileRepository profileRepository;
     private final FileStorageService fileStorageService;
+    private final AuditLogService auditLogService;
 
     private static final long MAX_PICTURE_SIZE_BYTES = 5L * 1024 * 1024; // 5MB
-    private static final List<String> ALLOWED_PICTURE_TYPES = List.of("image/jpeg", "image/png");
-    private static final String DEFAULT_PICTURE_PATH = "/default.png";
+    private static final List<String> ALLOWED_PICTURE_TYPES = List.of("image/jpeg", "image/png, image/jpg");
+    private static final String DEFAULT_PICTURE_PATH = "/default.jpg";
 
     // helper
     private ProfileUpdateResponse toResponse(Profile profile) {
@@ -61,7 +63,7 @@ public class ProfileService {
         }
 
         profileRepository.save(profile);
-        //audit logged
+        auditLogService.log(user, AuditAction.PROFILE_UPDATED, "Profile", profile.getId(), "Profile updated");
         return toResponse(profile);
     }
 
@@ -85,6 +87,7 @@ public class ProfileService {
         String path = fileStorageService.store(file, "profile_pictures");
         profile.setProfilePicturePath(path);
         profileRepository.save(profile);
+        auditLogService.log(user, AuditAction.PROFILE_PICTURE_UPDATED, "Profile", profile.getId(), "Profile picture changed");
         return toResponse(profile);
     }
 
