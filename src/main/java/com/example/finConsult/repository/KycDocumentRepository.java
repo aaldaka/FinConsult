@@ -5,9 +5,8 @@ import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.DocumentType;
 import com.example.finConsult.model.enums.KycStatus;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.awt.print.Pageable;
 import java.util.List;
 
 public interface KycDocumentRepository extends JpaRepository<KycDocument, Long> {

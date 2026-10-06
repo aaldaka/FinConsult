@@ -46,7 +46,7 @@ public class AdminController {
     @GetMapping("/logs")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<AuditLogResponse>> getAuditLogs(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size){
-        Pageable p = PageRequest.of(page, size, Sort.by("timestamp").descending());
+        org.springframework.data.domain.Pageable p = PageRequest.of(page, size, Sort.by("timestamp").descending());
         return ResponseEntity.ok(auditLogService.getLogs(p));
     }
 
