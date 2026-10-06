@@ -17,7 +17,7 @@ public class AuditLog {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "actor_id", nullable = false) // who
+    @JoinColumn(name = "actor_id", nullable = true) // who (can also be triggered from an event ie failed login)
     private User actor;
 
     private String action;
@@ -28,6 +28,7 @@ public class AuditLog {
     @Column(name = "entity_id")
     private Long entityId;
 
+    @Column(length = 800)
     private String details;
 
     @CreationTimestamp
