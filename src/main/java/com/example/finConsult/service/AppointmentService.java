@@ -42,6 +42,10 @@ public class AppointmentService {
             throw new InvalidRequest("This slot is no longer available");
         }
 
+        if (!slot.getAdvisor().isActive()) {
+            throw new InvalidRequest("This advisor is no longer available");
+        }
+
         ServiceType serviceType = serviceTypeRepository.findById(serviceId)
                 .orElseThrow(() -> new InformationNotFound("Service type not found"));
 
@@ -51,6 +55,7 @@ public class AppointmentService {
         appointment.setSlot(slot);
         appointment.setServiceType(serviceType);
         appointment.setStatus(AppointmentStatus.PENDING);
+        appointment = appointmentRepository.save(appointment);   // <- new line
         slot.setStatus(SlotStatus.BOOKED);
         availabilitySlotRepository.save(slot);
 
@@ -78,6 +83,7 @@ public class AppointmentService {
         if (appointment.getStatus() != AppointmentStatus.PENDING) {
             throw new InvalidRequest("Only pending appointments can be confirmed");
         }
+
 
         appointment.setStatus(AppointmentStatus.CONFIRMED);
 
