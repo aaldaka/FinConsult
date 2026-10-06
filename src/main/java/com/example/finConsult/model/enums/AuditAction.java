@@ -1,0 +1,13 @@
+package com.example.finConsult.model.enums;
+
+public enum AuditAction {
+    PROFILE_UPDATED,
+    PROFILE_PICTURE_UPDATED,
+    APPOINTMENT_CANCELLED,
+    APPOINTMENT_CANCELLED_BY_ADMIN,
+    APPOINTMENT_NO_SHOW,
+    NO_SHOW_EXCUSED,
+    USER_DEACTIVATED,
+    ADVISOR_DEACTIVATED
+    //kyc related (add in kyc branch)
+}
