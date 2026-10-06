@@ -3,10 +3,7 @@ package com.example.finConsult.service;
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
 import com.example.finConsult.model.*;
-import com.example.finConsult.model.enums.AppointmentStatus;
-import com.example.finConsult.model.enums.AuditAction;
-import com.example.finConsult.model.enums.NotificationType;
-import com.example.finConsult.model.enums.SlotStatus;
+import com.example.finConsult.model.enums.*;
 import com.example.finConsult.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -27,6 +24,7 @@ public class AppointmentService {
     private final ServiceTypeRepository serviceTypeRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
+    private final KycDocumentRepository kycDocumentRepository;
 
     @Transactional
     public void cancelAppointment(Long appointmentId, User cancelledBy) {
@@ -48,6 +46,16 @@ public class AppointmentService {
 
         ServiceType serviceType = serviceTypeRepository.findById(serviceId)
                 .orElseThrow(() -> new InformationNotFound("Service type not found"));
+
+        // added, checks if the slot/specialty requires a KYC and if it is present in the client's records
+        if (serviceType.isRequiresKyc()) { // null need to check if the client has any approved docs on his record
+            DocumentType needed = serviceType.getRequiredDocumentType();
+            boolean ok = (needed == null) ? kycDocumentRepository.existsByUserAndStatus(client, KycStatus.APPROVED)
+                    : kycDocumentRepository.existsByUserAndDocumentTypeAndStatus(client, needed, KycStatus.APPROVED);
+            if (!ok) {
+                throw new InvalidRequest(needed == null ? "This service requires an approved KYC document" : "This service requires an approved " + needed + " document");
+            }
+        }
 
         Appointment appointment = new Appointment();
         appointment.setClient(client);
@@ -186,6 +194,7 @@ public class AppointmentService {
         if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
             throw new InvalidRequest("Only confirmed appointments can be marked as no-show");
         }
+
 // optional (unmark for testing)
         if (appointment.getSlot().getStartTime().plusMinutes(20).isAfter(LocalDateTime.now())) {
             throw new InvalidRequest("Cannot mark No Show until 20 minutes has passed from the appointment start time");
