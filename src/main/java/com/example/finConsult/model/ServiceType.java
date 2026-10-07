@@ -1,6 +1,7 @@
 package com.example.finConsult.model;
 
 import com.example.finConsult.model.enums.DocumentType;
+import com.example.finConsult.model.enums.Specialty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -32,4 +33,8 @@ public class ServiceType extends BaseEntity {
     @Enumerated(EnumType.STRING) //added for KYC type checks before
     @Column(name = "required_document_type")
     private DocumentType requiredDocumentType;   // null = any approved document
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "required_specialty")
+    private Specialty requiredSpecialty;   // null = any advisor can offer it
 }
