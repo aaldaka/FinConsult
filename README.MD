@@ -80,3 +80,8 @@ Major banks/entities as clients
 Payment gateway
 Advisor applications will be verified ie their credentials and qualifications
 AI agent to help with inquiries, if a general advisor is unavailable he'll be there, Detects sensitive info like Salary, ID etc and doesnt save the session data 
+
+### Resources
+https://www.baeldung.com/spring-bucket4j
+https://www.baeldung.com/spring-server-sent-events
+https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/domain/PageRequest.html
