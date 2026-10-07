@@ -5,10 +5,8 @@ import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.DocumentType;
 import com.example.finConsult.model.enums.KycStatus;
 import com.example.finConsult.model.request.ReasonRequest;
-import com.example.finConsult.model.response.AuditLogResponse;
 import com.example.finConsult.model.response.KycDocResponse;
 import com.example.finConsult.security.MyUserDetails;
-import com.example.finConsult.service.AuditLogService;
 import com.example.finConsult.service.KycService;
 import org.springframework.core.io.Resource;
 import lombok.RequiredArgsConstructor;
@@ -54,10 +52,10 @@ public class KycController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Page<KycDocResponse>> getByStatus(@RequestParam(defaultValue = "PENDING") KycStatus status, @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+                                                            @RequestParam(defaultValue = "20") int size, DocumentType documentType) {
         Pageable p = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
                 Sort.by("createdAt").descending());
-        return ResponseEntity.ok(kycService.getByStatus(status, p));
+        return ResponseEntity.ok(kycService.getByStatus(status, p, documentType));
     }
 
     @PatchMapping("/{id}/approve")

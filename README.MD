@@ -85,3 +85,4 @@ AI agent to help with inquiries, if a general advisor is unavailable he'll be th
 https://www.baeldung.com/spring-bucket4j
 https://www.baeldung.com/spring-server-sent-events
 https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/domain/PageRequest.html
+https://www.baeldung.com/spring-data-sorting

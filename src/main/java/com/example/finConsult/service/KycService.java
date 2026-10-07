@@ -89,8 +89,11 @@ public class KycService {
         return kycDocumentRepository.findByUser(user).stream().map(this::toResponse).toList();
     }
 
-    public Page<KycDocResponse> getByStatus(KycStatus status, Pageable p) {
-        return kycDocumentRepository.findByStatus(status, p).map(this::toResponse);
+    public Page<KycDocResponse> getByStatus(KycStatus status, Pageable p, DocumentType docType) {
+        Page<KycDocument> docs = (docType == null)
+                ? kycDocumentRepository.findByStatus(status, p)
+                : kycDocumentRepository.findByStatusAndDocumentType(status, docType, p);
+        return docs.map(this::toResponse);
     }
 
     @Transactional
