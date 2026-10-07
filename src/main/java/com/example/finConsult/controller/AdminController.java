@@ -1,7 +1,10 @@
 package com.example.finConsult.controller;
 
+import com.example.finConsult.mapper.ResponseMapper;
+import com.example.finConsult.model.Advisor;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.AuditAction;
+import com.example.finConsult.model.request.AdvisorRequest;
 import com.example.finConsult.model.request.ReasonRequest;
 import com.example.finConsult.model.response.AuditLogResponse;
 import com.example.finConsult.model.response.MessageResponse;
@@ -15,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,6 +32,16 @@ public class AdminController {
     private final UserService userService;
     private final AdvisorService advisorService;
     private final AuditLogService auditLogService;
+    private final ResponseMapper mapper;
+
+    @PostMapping("/advisors")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> createAdvisor(@Valid @RequestBody AdvisorRequest request,
+                                           @AuthenticationPrincipal UserDetails userDetails) {
+        User admin = ((MyUserDetails) userDetails).getUser();
+        Advisor advisor = advisorService.createAdvisor(request, admin);
+        return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toAdvisor(advisor));
+    }
 
     @PatchMapping("/users/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')") //restricted/protected api

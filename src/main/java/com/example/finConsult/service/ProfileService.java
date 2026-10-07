@@ -2,6 +2,7 @@ package com.example.finConsult.service;
 
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
+import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.Profile;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.AuditAction;
@@ -18,28 +19,17 @@ import java.util.List;
 @Service
 @AllArgsConstructor
 public class ProfileService {
+    private static final long MAX_PICTURE_SIZE_BYTES = 5L * 1024 * 1024; // 5MB
+    private static final List<String> ALLOWED_PICTURE_TYPES = List.of("image/jpeg", "image/png", "image/jpg");
+
     private final ProfileRepository profileRepository;
     private final FileStorageService fileStorageService;
     private final AuditLogService auditLogService;
-
-    private static final long MAX_PICTURE_SIZE_BYTES = 5L * 1024 * 1024; // 5MB
-    private static final List<String> ALLOWED_PICTURE_TYPES = List.of("image/jpeg", "image/png, image/jpg");
-    private static final String DEFAULT_PICTURE_PATH = "/default.jpg";
-
-    // helper
-    private ProfileUpdateResponse toResponse(Profile profile) {
-        return new ProfileUpdateResponse(
-                profile.getFirstName(),
-                profile.getLastName(),
-                profile.getPhone(),
-                profile.getDateOfBirth(), //default pfp if not provided
-                profile.getProfilePicturePath() != null ? profile.getProfilePicturePath() : DEFAULT_PICTURE_PATH
-        );
-    }
+    private final ResponseMapper mapper;
 
     public ProfileUpdateResponse getMyProfile(User user) {
         Profile profile = getProfileOrThrow(user);
-        return toResponse(profile);
+        return mapper.toProfile(profile);
     }
 
     @Transactional
@@ -64,7 +54,7 @@ public class ProfileService {
 
         profileRepository.save(profile);
         auditLogService.log(user, AuditAction.PROFILE_UPDATED, "Profile", profile.getId(), "Profile updated");
-        return toResponse(profile);
+        return mapper.toProfile(profile);
     }
 
     @Transactional
@@ -88,7 +78,7 @@ public class ProfileService {
         profile.setProfilePicturePath(path);
         profileRepository.save(profile);
         auditLogService.log(user, AuditAction.PROFILE_PICTURE_UPDATED, "Profile", profile.getId(), "Profile picture changed");
-        return toResponse(profile);
+        return mapper.toProfile(profile);
     }
 
     private Profile getProfileOrThrow(User user) {

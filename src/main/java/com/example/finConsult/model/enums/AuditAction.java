@@ -11,5 +11,6 @@ public enum AuditAction {
     ADVISOR_DEACTIVATED,
     KYC_SUBMITTED,
     KYC_APPROVED,
-    KYC_REJECTED
+    KYC_REJECTED,
+    ADVISOR_CREATED
 }

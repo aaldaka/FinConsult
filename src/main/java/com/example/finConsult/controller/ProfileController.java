@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProfileController {
     private final ProfileService profileService;
 
+
     @GetMapping("/me")
     public ResponseEntity<ProfileUpdateResponse> getMyProfile(@AuthenticationPrincipal UserDetails userDetails) {
         User user = ((MyUserDetails) userDetails).getUser();

@@ -41,7 +41,6 @@ public class ResponseMapper {
                 notif.getCreatedAt());
     }
 
-
     private String nameOf(User user) {
         return profileRepository.findByUser(user)
                 .map(p -> p.getFirstName() + " " + p.getLastName())
@@ -65,6 +64,4 @@ public class ResponseMapper {
                 nameOf(a.getClient()), a.getServiceType().getName(),
                 a.getSlot().getStartTime(), a.getSlot().getEndTime(), a.getCreatedAt());
     }
-
-
 }

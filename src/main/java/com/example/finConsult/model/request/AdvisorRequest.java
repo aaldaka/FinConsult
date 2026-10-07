@@ -4,6 +4,7 @@ import com.example.finConsult.model.enums.Specialty;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 @Getter
@@ -15,7 +16,7 @@ public class AdvisorRequest {
     private String email;
 
     @NotBlank
-    @Min(8)
+    @Size(min = 8, message = "Password must be at least 8 characters")
     private String password;
 
     @NotBlank
@@ -29,5 +30,6 @@ public class AdvisorRequest {
 
     private Specialty specialty;
 
+    @Min(0)
     private int yearsOfExperience;
 }

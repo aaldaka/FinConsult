@@ -27,7 +27,7 @@ public class AdvisorService {
     private final AuditLogService auditLogService;
 
     @Transactional
-    public Advisor createAdvisor(AdvisorRequest req) {
+    public Advisor createAdvisor(AdvisorRequest req, User admin) {
         if (userRepository.existsByEmail(req.getEmail())) {
             throw new EmailExists("An account with this email already exists");
         }
@@ -53,7 +53,10 @@ public class AdvisorService {
         advisor.setActive(true);
         profile.setProfilePicturePath("/default.jpg");
         // wire functionality of requesting to become an advisor throuh application
-        return advisorRepository.save(advisor);
+        Advisor saved = advisorRepository.save(advisor);
+        auditLogService.log(admin, AuditAction.ADVISOR_CREATED, "Advisor", saved.getId(),
+                "Created advisor account for " + req.getEmail());
+        return saved;
     }
 
     public Advisor getById(Long advisorId) {

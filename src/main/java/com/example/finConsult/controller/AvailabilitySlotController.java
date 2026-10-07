@@ -1,6 +1,7 @@
 package com.example.finConsult.controller;
 
 import com.example.finConsult.exception.InformationNotFound;
+import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.Advisor;
 import com.example.finConsult.model.AvailabilitySlot;
 import com.example.finConsult.model.User;
@@ -25,6 +26,7 @@ import java.util.List;
 public class AvailabilitySlotController { //posting the slot
     private final AdvisorRepository advisorRepository;
     private final AvailabilitySlotService availabilitySlotService;
+    private final ResponseMapper mapper;
 
     @PostMapping
     @PreAuthorize("hasRole('ADVISOR') or hasRole('ADMIN')")
@@ -34,7 +36,7 @@ public class AvailabilitySlotController { //posting the slot
                 .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
 
         AvailabilitySlot createdSlot = availabilitySlotService.createSlot(advisor.getId(), request);
-        return ResponseEntity.ok(createdSlot);
+        return ResponseEntity.ok(mapper.toSlot(createdSlot));
     }
 
     @DeleteMapping("/{id}")
@@ -51,7 +53,7 @@ public class AvailabilitySlotController { //posting the slot
     @GetMapping("/advisor/{advisorId}")
     public ResponseEntity<?> getAvailableSlots(@PathVariable Long advisorId) {
         List<AvailabilitySlot> slots = availabilitySlotService.getAvailableSlots(advisorId);
-        return ResponseEntity.ok(slots);
+        return ResponseEntity.ok(slots.stream().map(mapper::toSlot).toList());
     }
 
     @GetMapping("/mine")
@@ -62,6 +64,6 @@ public class AvailabilitySlotController { //posting the slot
                 .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
 
         List<AvailabilitySlot> slots = availabilitySlotService.getMySlots(advisor.getId());
-        return ResponseEntity.ok(slots);
+        return ResponseEntity.ok(slots.stream().map(mapper::toSlot).toList());
     }
 }

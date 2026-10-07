@@ -1,5 +1,6 @@
 package com.example.finConsult.service;
 
+import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.AuditLog;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.AuditAction;
@@ -16,18 +17,13 @@ public class AuditLogService {
 
     private static final int MAX_DETAILS_LENGTH = 800;
     private final AuditLogRepository auditLogRepository;
-
-    private AuditLogResponse toResponse(AuditLog entry) { // helper like profileservice, to map each field
-        String actor = entry.getActor() != null ? entry.getActor().getEmail() : "SYSTEM";
-        return new AuditLogResponse(entry.getId(), actor, entry.getAction(), entry.getEntityType(),
-                entry.getEntityId(), entry.getDetails(), entry.getTimestamp());
-    }
+    private final ResponseMapper mapper;
 
     public Page<AuditLogResponse> getLogs(Pageable p, AuditAction action){ // by default its 20 entries per page. 1st page no prev link
         Page<AuditLog> logs = (action == null)
                 ? auditLogRepository.findAll(p)
                 : auditLogRepository.findByAction(action.name(), p);
-        return logs.map(this::toResponse);
+        return logs.map(mapper::toAuditLog);
     }
 
     public void log(User actor, AuditAction action, String entityType, Long entityId, String details) {
