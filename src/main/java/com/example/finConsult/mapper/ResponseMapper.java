@@ -61,6 +61,11 @@ public class ResponseMapper {
                 s.getStartTime(), s.getEndTime(), s.getStatus());
     }
 
+    public ServiceTypeResponse toServiceType(ServiceType s) {
+        return new ServiceTypeResponse(s.getId(), s.getName(), s.getDescription(), s.getDurationMinutes(),
+                s.isRequiresKyc(), s.getRequiredDocumentType(), s.getRequiredSpecialty());
+    }
+
     public AppointmentResponse toAppointment(Appointment a) {
         return new AppointmentResponse(a.getId(), a.getStatus(), a.getNotes(),
                 a.getCancellationReason(), a.isExcused(), a.getExcuseReason(),
