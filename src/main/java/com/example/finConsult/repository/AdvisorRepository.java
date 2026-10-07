@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface AdvisorRepository extends JpaRepository<Advisor, Long> {
     List<Advisor> findBySpecialtyAndActiveTrue(Specialty specialty);
     Optional<Advisor> findByUser(User user);
+    List<Advisor> findByActiveTrue();
 }

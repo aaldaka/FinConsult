@@ -36,7 +36,7 @@ public class AdvisorController {
         if (specialty != null) {
             return ResponseEntity.ok(advisorService.findBySpecialty(specialty));
         }
-        return ResponseEntity.badRequest().body("Please provide a specialty to search by");
+        return ResponseEntity.ok(advisorService.findAllActive());
     }
 
 }

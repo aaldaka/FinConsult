@@ -65,6 +65,10 @@ public class AdvisorService {
         return advisorRepository.findBySpecialtyAndActiveTrue(specialty);
     }
 
+    public List<Advisor> findAllActive() {
+        return advisorRepository.findByActiveTrue();
+    }
+
     @Transactional
     public void deactivateAdvisor(Long advisorId, String reason, User admin) {
         if (reason == null || reason.isBlank()) {
