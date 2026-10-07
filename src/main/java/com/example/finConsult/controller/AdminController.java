@@ -1,6 +1,7 @@
 package com.example.finConsult.controller;
 
 import com.example.finConsult.model.User;
+import com.example.finConsult.model.enums.AuditAction;
 import com.example.finConsult.model.request.ReasonRequest;
 import com.example.finConsult.model.response.AuditLogResponse;
 import com.example.finConsult.model.response.MessageResponse;
@@ -46,9 +47,9 @@ public class AdminController {
 
     @GetMapping("/logs")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Page<AuditLogResponse>> getAuditLogs(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size){
+    public ResponseEntity<Page<AuditLogResponse>> getAuditLogs(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
+                                                                @RequestParam(required = false) AuditAction action){
         org.springframework.data.domain.Pageable p = PageRequest.of(page, size, Sort.by("timestamp").descending());
-        return ResponseEntity.ok(auditLogService.getLogs(p));
+        return ResponseEntity.ok(auditLogService.getLogs(p, action));
     }
-
 }
