@@ -4,6 +4,7 @@ import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.model.Advisor;
 import com.example.finConsult.model.Appointment;
 import com.example.finConsult.model.User;
+import com.example.finConsult.model.enums.AppointmentStatus;
 import com.example.finConsult.model.enums.UserRole;
 import com.example.finConsult.model.request.BookAppointmentRequest;
 import com.example.finConsult.model.request.ReasonRequest;
@@ -13,6 +14,8 @@ import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -51,16 +54,17 @@ public class AppointmentController { // patch to partially update things instead
         return ResponseEntity.ok(new MessageResponse("Appointment cancelled"));
     }
 
-    @GetMapping("/mine")
-    public ResponseEntity<?> getMyAppointments(@AuthenticationPrincipal UserDetails userDetails) {
+    @GetMapping("/mine") //default to createdAt in desc order if no sortby was present
+    public ResponseEntity<?> getMyAppointments(@AuthenticationPrincipal UserDetails userDetails, @RequestParam(required = false) AppointmentStatus status,
+                                               @SortDefault(sort = "createdAt", direction = Sort.Direction.DESC) Sort sortBy) {
         User user = ((MyUserDetails) userDetails).getUser();
 
         if (user.getRole() == UserRole.ADVISOR) {
             Advisor advisor = advisorRepository.findByUser(user)
                     .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
-            return ResponseEntity.ok(appointmentService.getAdvisorAppointments(advisor.getId()));
+            return ResponseEntity.ok(appointmentService.getAdvisorAppointments(advisor.getId(), status, sortBy));
         } else {
-            return ResponseEntity.ok(appointmentService.getClientAppointments(user));
+            return ResponseEntity.ok(appointmentService.getClientAppointments(user, status, sortBy));
         }
     }
 

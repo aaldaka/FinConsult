@@ -23,8 +23,11 @@ public class AuditLogService {
                 entry.getEntityId(), entry.getDetails(), entry.getTimestamp());
     }
 
-    public Page<AuditLogResponse> getLogs(Pageable p){ // by default its 20 entries per page. 1st page no prev link
-        return auditLogRepository.findAll(p).map(this::toResponse);
+    public Page<AuditLogResponse> getLogs(Pageable p, AuditAction action){ // by default its 20 entries per page. 1st page no prev link
+        Page<AuditLog> logs = (action == null)
+                ? auditLogRepository.findAll(p)
+                : auditLogRepository.findByAction(action.name(), p);
+        return logs.map(this::toResponse);
     }
 
     public void log(User actor, AuditAction action, String entityType, Long entityId, String details) {

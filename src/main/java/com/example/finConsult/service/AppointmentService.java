@@ -7,15 +7,18 @@ import com.example.finConsult.model.enums.*;
 import com.example.finConsult.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @AllArgsConstructor
 public class AppointmentService {
     private static final int CANCELLATION_STRIKE_WINDOW_HOURS = 24;
+    private static final Set<String> SORTABLE = Set.of("createdAt", "status", "slot.startTime");
 
     private final AppointmentRepository appointmentRepository;
     private final AvailabilitySlotRepository availabilitySlotRepository;
@@ -25,6 +28,14 @@ public class AppointmentService {
     private final AuditLogService auditLogService;
     private final KycDocumentRepository kycDocumentRepository;
     private final NotificationService notificationService;
+
+    private void checkSort(Sort sort) { //validation
+        for (Sort.Order o : sort) {
+            if (!SORTABLE.contains(o.getProperty())) {
+                throw new InvalidRequest("Cannot sort by " + o.getProperty() + ". Allowed: " + SORTABLE);
+            }
+        }
+    }
 
     @Transactional
     public Appointment bookSlot(User client, Long slotId, Long serviceId) {
@@ -151,16 +162,18 @@ public class AppointmentService {
     }
 
     // List appointments for a client
-    public List<Appointment> getClientAppointments(User client) {
-        return appointmentRepository.findByClient(client);
+    public List<Appointment> getClientAppointments(User client, AppointmentStatus status, Sort sortBy) {
+        checkSort(sortBy);
+        return (status == null) ? appointmentRepository.findByClient(client, sortBy) : appointmentRepository.findByClientAndStatus(client, status, sortBy);
     }
 
     // List appointments for an advisor
-    public List<Appointment> getAdvisorAppointments(Long advisorId) {
+    public List<Appointment> getAdvisorAppointments(Long advisorId, AppointmentStatus status, Sort sortBy) {
+        checkSort(sortBy);
         Advisor advisor = advisorRepository.findById(advisorId)
                 .orElseThrow(() -> new InformationNotFound("Advisor not found"));
 
-        return appointmentRepository.findByAdvisor(advisor);
+        return (status == null) ? appointmentRepository.findByAdvisor(advisor, sortBy) : appointmentRepository.findByAdvisorAndStatus(advisor, status, sortBy);
     }
 
     @Transactional
