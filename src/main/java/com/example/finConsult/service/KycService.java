@@ -7,6 +7,7 @@ import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.AuditAction;
 import com.example.finConsult.model.enums.DocumentType;
 import com.example.finConsult.model.enums.KycStatus;
+import com.example.finConsult.model.enums.NotificationType;
 import com.example.finConsult.model.response.KycDocResponse;
 import com.example.finConsult.repository.KycDocumentRepository;
 import jakarta.transaction.Transactional;
@@ -30,6 +31,7 @@ public class KycService {
     private final KycDocumentRepository kycDocumentRepository;
     private final FileStorageService fileStorageService;
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
 
     private KycDocResponse toResponse(KycDocument d) {
         return new KycDocResponse(
@@ -99,6 +101,9 @@ public class KycService {
         doc.setReviewedAt(LocalDateTime.now());
         kycDocumentRepository.save(doc);
 
+        notificationService.create(doc.getUser(), NotificationType.KYC_REVIEWED,
+                "Your " + doc.getDocumentType() + " document has been approved.", null);
+
         auditLogService.log(admin, AuditAction.KYC_APPROVED, "KycDocument", id,
                 "Approved " + doc.getDocumentType() + " for " + doc.getUser().getEmail());
         return toResponse(doc);
@@ -115,6 +120,9 @@ public class KycService {
         doc.setReviewedBy(admin);
         doc.setReviewedAt(LocalDateTime.now());
         kycDocumentRepository.save(doc);
+
+        notificationService.create(doc.getUser(), NotificationType.KYC_REVIEWED,
+                "Your " + doc.getDocumentType() + " document was rejected. Reason: " + reason, null);
 
         auditLogService.log(admin, AuditAction.KYC_REJECTED, "KycDocument", id,
                 "Rejected " + doc.getDocumentType() + " for " + doc.getUser().getEmail());

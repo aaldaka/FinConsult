@@ -19,12 +19,12 @@ public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
     private final AvailabilitySlotRepository availabilitySlotRepository;
-    private final NotificationRepository notificationRepository;
     private final AdvisorRepository advisorRepository;
     private final ServiceTypeRepository serviceTypeRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
     private final KycDocumentRepository kycDocumentRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public void cancelAppointment(Long appointmentId, User cancelledBy) {
@@ -68,12 +68,8 @@ public class AppointmentService {
         availabilitySlotRepository.save(slot);
 
         // an advisor gets notified so they can confirm their availability for the booked slot
-        Notification notif = new Notification();
-        notif.setUser(slot.getAdvisor().getUser());
-        notif.setType(NotificationType.APPOINTMENT_BOOKED);
-        notif.setMessage("Client: " + client.getId() + " has booked an appointment. Pending your confirmation.");
-        notif.setRelatedAppointment(appointment);
-        notificationRepository.save(notif);
+        notificationService.create(slot.getAdvisor().getUser(), NotificationType.APPOINTMENT_BOOKED,
+                "Client: " + client.getId() + " has booked an appointment. Pending your confirmation.", appointment);
 
         return appointment;
     }
@@ -95,13 +91,8 @@ public class AppointmentService {
 
         appointment.setStatus(AppointmentStatus.CONFIRMED);
 
-        // client gets notified of the cofirmed appointment
-        Notification notif = new Notification();
-        notif.setUser(appointment.getClient());
-        notif.setType(NotificationType.APPOINTMENT_CONFIRMED);
-        notif.setMessage("Your appointment has been confirmed!");
-        notif.setRelatedAppointment(appointment);
-        notificationRepository.save(notif);
+        notificationService.create(appointment.getClient(), NotificationType.APPOINTMENT_CONFIRMED,
+                "Your appointment has been confirmed!", appointment);
 
         return appointmentRepository.save(appointment);
     }
@@ -144,12 +135,9 @@ public class AppointmentService {
             }
             userRepository.save(client);
 
-            Notification notif = new Notification();
-            notif.setUser(client);
-            notif.setRelatedAppointment(appointment);
-            notif.setType(NotificationType.APPOINTMENT_NO_SHOW);
-            notif.setMessage("You cancelled your: "+ appointmentId + " appointment less than the acceptable 24-Hour window. Your strikes are: "+ client.getNoShowStrikes() + " /3");
-            notificationRepository.save(notif);
+            notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
+                    "You cancelled your: " + appointmentId + " appointment less than the acceptable 24 Hour window. Your strikes are: "
+                            + client.getNoShowStrikes() + " /3", appointment);
         }
 
         appointment.setCancellationReason(reason);
@@ -161,12 +149,8 @@ public class AppointmentService {
         availabilitySlotRepository.save(slot);
 
         User whoToNotify = isClient ? appointment.getAdvisor().getUser() : appointment.getClient(); //notify the other party of the cancellation
-        Notification notif = new Notification();
-        notif.setUser(whoToNotify);
-        notif.setRelatedAppointment(appointment);
-        notif.setType(NotificationType.APPOINTMENT_CANCELLED);
-        notif.setMessage("The appointment with ID: " + appointmentId + " has been cancelled due to: "+ reason);
-        notificationRepository.save(notif);
+        notificationService.create(whoToNotify, NotificationType.APPOINTMENT_CANCELLED,
+                "The appointment with ID: " + appointmentId + " has been cancelled due to: " + reason, appointment);
     }
 
     // List appointments for a client
@@ -214,12 +198,9 @@ public class AppointmentService {
         auditLogService.log(appointment.getAdvisor().getUser(), AuditAction.APPOINTMENT_NO_SHOW,
                 "Appointment", appointmentId, "Marked no-show; client strikes: " + client.getNoShowStrikes());
 
-        Notification notif = new Notification();
-        notif.setUser(client);
-        notif.setRelatedAppointment(appointment);
-        notif.setType(NotificationType.APPOINTMENT_NO_SHOW);
-        notif.setMessage("You were marked as No Show for your: "+ appointmentId + " appointment. Your strikes are: "+ client.getNoShowStrikes() + " /3");
-        notificationRepository.save(notif);
+        notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
+                "You were marked as No Show for your: " + appointmentId + " appointment. Your strikes are: "
+                        + client.getNoShowStrikes() + " /3", appointment);
 
         return appointment;
     }
@@ -243,12 +224,8 @@ public class AppointmentService {
         auditLogService.log(admin, AuditAction.NO_SHOW_EXCUSED, "Appointment", appointmentId,
                 "No show excused: " + reason + "; client strikes: " + client.getNoShowStrikes());
 
-        Notification excuseNotification = new Notification();
-        excuseNotification.setUser(client);
-        excuseNotification.setType(NotificationType.APPOINTMENT_NO_SHOW);
-        excuseNotification.setMessage("Your No Show was excused. Reason: " + reason);
-        excuseNotification.setRelatedAppointment(appointment);
-        notificationRepository.save(excuseNotification);
+        notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
+                "Your No Show was excused. Reason: " + reason, appointment);
 
         return appointmentRepository.save(appointment);
     }
@@ -274,11 +251,7 @@ public class AppointmentService {
 
         auditLogService.log(admin, AuditAction.APPOINTMENT_CANCELLED_BY_ADMIN, "Appointment", appointmentId, reason);
 
-        Notification notif = new Notification();
-        notif.setUser(appointment.getAdvisor().getUser());
-        notif.setRelatedAppointment(appointment);
-        notif.setType(NotificationType.APPOINTMENT_CANCELLED);
-        notif.setMessage("The appointment with ID: " + appointmentId + " has been cancelled due to: " + reason);
-        notificationRepository.save(notif);
+        notificationService.create(appointment.getAdvisor().getUser(), NotificationType.APPOINTMENT_CANCELLED,
+                "The appointment with ID: " + appointmentId + " has been cancelled due to: " + reason, appointment);
     }
 }
