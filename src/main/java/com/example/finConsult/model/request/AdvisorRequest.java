@@ -2,6 +2,7 @@ package com.example.finConsult.model.request;
 
 import com.example.finConsult.model.enums.Specialty;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
@@ -14,6 +15,7 @@ public class AdvisorRequest {
     private String email;
 
     @NotBlank
+    @Min(8)
     private String password;
 
     @NotBlank

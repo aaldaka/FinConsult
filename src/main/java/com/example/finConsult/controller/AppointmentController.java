@@ -11,6 +11,7 @@ import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.repository.AdvisorRepository;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.AppointmentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,7 +29,7 @@ public class AppointmentController { // patch to partially update things instead
 
     @PostMapping("/book/{slotId}")
     @PreAuthorize("hasRole('CLIENT')")
-    public ResponseEntity<?> bookSlot(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long slotId, @RequestBody BookAppointmentRequest bookAppointmentRequest) {
+    public ResponseEntity<?> bookSlot(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long slotId, @Valid @RequestBody BookAppointmentRequest bookAppointmentRequest) {
          User client = ((MyUserDetails) userDetails).getUser();
          Appointment appointment = appointmentService.bookSlot(client, slotId, bookAppointmentRequest.getServiceTypeId());
          return ResponseEntity.ok(appointment);
@@ -44,7 +45,7 @@ public class AppointmentController { // patch to partially update things instead
     }
 
     @PatchMapping("/{id}/cancel")
-    public ResponseEntity<?> cancelAppointment(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id, @RequestBody ReasonRequest request) {
+    public ResponseEntity<?> cancelAppointment(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id, @Valid @RequestBody ReasonRequest request) {
         User user = ((MyUserDetails) userDetails).getUser();
         appointmentService.cancelAppointment(id, user, request.getReason());
         return ResponseEntity.ok(new MessageResponse("Appointment cancelled"));
@@ -74,7 +75,7 @@ public class AppointmentController { // patch to partially update things instead
 
     @PatchMapping("/{id}/excuse")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> excuseNoShow(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id, @RequestBody ReasonRequest request) {
+    public ResponseEntity<?> excuseNoShow(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id, @Valid @RequestBody ReasonRequest request) {
         User admin = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.ok(appointmentService.excuseNoShow(id, request.getReason(), admin));
     }

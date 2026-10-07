@@ -9,7 +9,7 @@ import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.repository.AdvisorRepository;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.AvailabilitySlotService;
-import lombok.NoArgsConstructor;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,7 +28,7 @@ public class AvailabilitySlotController { //posting the slot
 
     @PostMapping
     @PreAuthorize("hasRole('ADVISOR') or hasRole('ADMIN')")
-    public ResponseEntity<?> createSlot(@AuthenticationPrincipal UserDetails userDetails, @RequestBody CreateSlotRequest request) {
+    public ResponseEntity<?> createSlot(@AuthenticationPrincipal UserDetails userDetails, @Valid @RequestBody CreateSlotRequest request) {
         User user = ((MyUserDetails) userDetails).getUser();
         Advisor advisor = advisorRepository.findByUser(user)
                 .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));

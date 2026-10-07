@@ -5,6 +5,7 @@ import com.example.finConsult.model.enums.Specialty;;
 import com.example.finConsult.model.request.UpdateAdvisorRequest;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.AdvisorService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,7 +21,7 @@ public class AdvisorController {
 
     @PreAuthorize("hasRole('ADVISOR')") // wire admin later
     @PatchMapping("/me")
-    public ResponseEntity<?> updateAdvisor(@AuthenticationPrincipal UserDetails userDetails, @RequestBody UpdateAdvisorRequest updateAdvisorRequest) {
+    public ResponseEntity<?> updateAdvisor(@AuthenticationPrincipal UserDetails userDetails, @Valid @RequestBody UpdateAdvisorRequest updateAdvisorRequest) {
         User user = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.ok(advisorService.updateAdvisor(user, updateAdvisorRequest));
     }

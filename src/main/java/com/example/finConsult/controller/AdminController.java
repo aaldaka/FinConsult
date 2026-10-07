@@ -8,6 +8,7 @@ import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.AdvisorService;
 import com.example.finConsult.service.AuditLogService;
 import com.example.finConsult.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -37,7 +38,7 @@ public class AdminController {
 
     @PatchMapping("/advisors/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> deactivateAdvisor(@PathVariable Long id, @RequestBody ReasonRequest request, @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<?> deactivateAdvisor(@PathVariable Long id, @Valid @RequestBody ReasonRequest request, @AuthenticationPrincipal UserDetails userDetails) {
         User admin = ((MyUserDetails) userDetails).getUser();
         advisorService.deactivateAdvisor(id, request.getReason(), admin);
         return ResponseEntity.ok(new MessageResponse("Advisor deactivated"));
