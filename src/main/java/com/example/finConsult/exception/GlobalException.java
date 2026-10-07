@@ -1,5 +1,8 @@
 package com.example.finConsult.exception;
 
+import com.example.finConsult.model.response.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -10,76 +13,85 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
-import java.util.Map;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
+/**
+ * Central exception-to-HTTP-response mapping. Every handler below turns a thrown
+ * exception into the same {@link ErrorResponse} shape so API clients can rely on one
+ * error contract regardless of which endpoint failed.
+ */
+@Slf4j
 @RestControllerAdvice
 public class GlobalException { // adds meta data like http codes to the existing exceptions
 
+    private ResponseEntity<ErrorResponse> build(HttpStatus status, String message, HttpServletRequest request) {
+        ErrorResponse body = new ErrorResponse(
+                LocalDateTime.now(),
+                status.value(),
+                status.name(),
+                message,
+                request.getRequestURI());
+        return ResponseEntity.status(status).body(body);
+    }
+
     @ExceptionHandler(EmailExists.class)
-    public ResponseEntity<Map<String, String>> handleEmailExists(EmailExists e) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("error", e.getMessage()));
+    public ResponseEntity<ErrorResponse> handleEmailExists(EmailExists e, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, e.getMessage(), request);
     }
 
     @ExceptionHandler(InformationIncorrect.class)
-    public ResponseEntity<Map<String, String>> handleInformationIncorrect(InformationIncorrect ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("error", ex.getMessage()));
+    public ResponseEntity<ErrorResponse> handleInformationIncorrect(InformationIncorrect ex, HttpServletRequest request) {
+        return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
     }
 
     @ExceptionHandler(InformationNotFound.class)
-    public ResponseEntity<Map<String, String>> handleInformationNotFound(InformationNotFound e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", e.getMessage()));
+    public ResponseEntity<ErrorResponse> handleInformationNotFound(InformationNotFound e, HttpServletRequest request) {
+        return build(HttpStatus.NOT_FOUND, e.getMessage(), request);
     }
 
     @ExceptionHandler(AccountNotActive.class)
-    public ResponseEntity<Map<String, String>> handleAccountNotActive(AccountNotActive e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", e.getMessage()));
+    public ResponseEntity<ErrorResponse> handleAccountNotActive(AccountNotActive e, HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, e.getMessage(), request);
     }
 
     @ExceptionHandler(AuthorizationDeniedException.class) // return proper code when hitting resrticted api
-    public ResponseEntity<Map<String, String>> handleAuthorizationDenied(AuthorizationDeniedException e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(Map.of("error", "You do not have permission to access this resource"));
+    public ResponseEntity<ErrorResponse> handleAuthorizationDenied(AuthorizationDeniedException e, HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, "You do not have permission to access this resource", request);
     }
 
     @ExceptionHandler(InvalidRequest.class)
-    public ResponseEntity<Map<String, String>> handleInvalidRequest(InvalidRequest e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", e.getMessage()));
+    public ResponseEntity<ErrorResponse> handleInvalidRequest(InvalidRequest e, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, e.getMessage(), request);
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<Map<String, String>> handleMaxUploadSize(MaxUploadSizeExceededException e) {
-        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE) //413
-                .body(Map.of("error", "The file is too large"));
+    public ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException e, HttpServletRequest request) {
+        return build(HttpStatus.PAYLOAD_TOO_LARGE, "The file is too large", request); //413
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class) //  thrown with @valid
-    public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException e) {
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e, HttpServletRequest request) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .map(err -> err.getField() + ": " + err.getDefaultMessage())
                 .collect(Collectors.joining(", "));
-        return ResponseEntity.badRequest().body(Map.of("error", message));
+        return build(HttpStatus.BAD_REQUEST, message, request);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<Map<String, String>> handleUnreadable(HttpMessageNotReadableException ex) {
-        return ResponseEntity.badRequest().body(Map.of("error", "Invalid request body"));
+    public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "Invalid request body", request);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class) // enums
-    public ResponseEntity<?> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        return ResponseEntity.badRequest().body(Map.of("error", "Invalid value for " + ex.getName()));
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "Invalid value for " + ex.getName(), request);
     }
 
     // Catch-all fallback for anything unexpected
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGeneric(Exception e) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Something went wrong. Please try again."));
+    public ResponseEntity<ErrorResponse> handleGeneric(Exception e, HttpServletRequest request) {
+        log.error("Unhandled exception on {} {}", request.getMethod(), request.getRequestURI(), e);
+        return build(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong. Please try again.", request);
     }
 }
