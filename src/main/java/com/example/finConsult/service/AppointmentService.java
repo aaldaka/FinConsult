@@ -14,6 +14,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Core appointment lifecycle: booking, advisor confirmation, cancellation, no-show
+ * tracking (including the client strike/blacklist rules) and admin overrides.
+ */
 @Service
 @AllArgsConstructor
 public class AppointmentService {
@@ -29,6 +33,7 @@ public class AppointmentService {
     private final KycDocumentRepository kycDocumentRepository;
     private final NotificationService notificationService;
 
+    /** Rejects sort fields outside the allow-list so callers can't sort on an unindexed or sensitive column. */
     private void checkSort(Sort sort) { //validation
         for (Sort.Order o : sort) {
             if (!SORTABLE.contains(o.getProperty())) {
@@ -37,6 +42,11 @@ public class AppointmentService {
         }
     }
 
+    /**
+     * Books a slot, leaving it PENDING until the advisor confirms. Checks the advisor
+     * is active, the specialty matches the service (GENERAL advisors take anything),
+     * and — if the service requires KYC — that the client has an approved document.
+     */
     @Transactional
     public Appointment bookSlot(User client, Long slotId, Long serviceId) {
         AvailabilitySlot slot = availabilitySlotRepository.findById(slotId)
@@ -83,10 +93,13 @@ public class AppointmentService {
         notificationService.create(slot.getAdvisor().getUser(), NotificationType.APPOINTMENT_BOOKED,
                 "Client: " + client.getId() + " has booked an appointment. Pending your confirmation.", appointment);
 
+        auditLogService.log(client, AuditAction.APPOINTMENT_BOOKED, "Appointment", appointment.getId(),
+                "User " + client.getId() + " booked appointment " + appointment.getId());
+
         return appointment;
     }
 
-    // advisor agrees to the booked slot (Gets notified)
+    /** Only the owning advisor may confirm, and only while it's still pending. */
     @Transactional
     public Appointment confirmAppointment(Long advisorId, Long appointmentId) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
@@ -104,9 +117,17 @@ public class AppointmentService {
         notificationService.create(appointment.getClient(), NotificationType.APPOINTMENT_CONFIRMED,
                 "Your appointment has been confirmed!", appointment);
 
+        auditLogService.log(appointment.getAdvisor().getUser(), AuditAction.APPOINTMENT_CONFIRMED,
+                "Appointment", appointmentId, "User " + appointment.getAdvisor().getUser().getId() + " confirmed appointment " + appointmentId);
+
         return appointmentRepository.save(appointment);
     }
 
+    /**
+     * Advisor cancellations never add a strike. Client cancellations only add one
+     * (and blacklist at 3) when done less than 24h before the slot — too late for the
+     * advisor to re-fill it, so it's treated like a no-show.
+     */
     @Transactional
     public void cancelAppointment(Long appointmentId, User cancelledBy, String additionalNotes) {
         String notes = (additionalNotes == null || additionalNotes.isBlank()) ? null : additionalNotes.trim();
@@ -138,10 +159,16 @@ public class AppointmentService {
                 User client = appointment.getClient();
                 client.setNoShowStrikes(client.getNoShowStrikes() + 1);
 
+            boolean newlyBlacklisted = !client.isBlacklisted() && client.getNoShowStrikes() >= 3;
             if (client.getNoShowStrikes() >= 3) {
                 client.setBlacklisted(true);
             }
             userRepository.save(client);
+
+            if (newlyBlacklisted) {
+                auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
+                        "User " + client.getId() + " blacklisted after reaching " + client.getNoShowStrikes() + " strikes");
+            }
 
             notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
                     "You cancelled your: " + appointmentId + " appointment less than the acceptable 24 Hour window. Your strikes are: "
@@ -161,13 +188,11 @@ public class AppointmentService {
                 "The appointment with ID: " + appointmentId + " has been cancelled due to: " + reason, appointment);
     }
 
-    // List appointments for a client
     public List<Appointment> getClientAppointments(User client, AppointmentStatus status, Sort sortBy) {
         checkSort(sortBy);
         return (status == null) ? appointmentRepository.findByClient(client, sortBy) : appointmentRepository.findByClientAndStatus(client, status, sortBy);
     }
 
-    // List appointments for an advisor
     public List<Appointment> getAdvisorAppointments(Long advisorId, AppointmentStatus status, Sort sortBy) {
         checkSort(sortBy);
         Advisor advisor = advisorRepository.findById(advisorId)
@@ -176,6 +201,7 @@ public class AppointmentService {
         return (status == null) ? appointmentRepository.findByAdvisor(advisor, sortBy) : appointmentRepository.findByAdvisorAndStatus(advisor, status, sortBy);
     }
 
+    /** Always adds a strike (no-shows are never the advisor's fault). Requires a 20-minute grace period first. */
     @Transactional
     public Appointment markNoShow(Long advisorId, Long appointmentId) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
@@ -200,6 +226,7 @@ public class AppointmentService {
         User client = appointment.getClient();
         client.setNoShowStrikes(client.getNoShowStrikes()+ 1);
 
+        boolean newlyBlacklisted = !client.isBlacklisted() && client.getNoShowStrikes() >= 3;
         if (client.getNoShowStrikes() >= 3) {
             client.setBlacklisted(true);
         }
@@ -208,6 +235,11 @@ public class AppointmentService {
         auditLogService.log(appointment.getAdvisor().getUser(), AuditAction.APPOINTMENT_NO_SHOW,
                 "Appointment", appointmentId, "Marked no-show; client strikes: " + client.getNoShowStrikes());
 
+        if (newlyBlacklisted) {
+            auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
+                    "User " + client.getId() + " blacklisted after reaching " + client.getNoShowStrikes() + " strikes");
+        }
+
         notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
                 "You were marked as No Show for your: " + appointmentId + " appointment. Your strikes are: "
                         + client.getNoShowStrikes() + " /3", appointment);
@@ -215,6 +247,7 @@ public class AppointmentService {
         return appointment;
     }
 
+    /** Reverses a no-show: removes one strike and un-blacklists the client if that brings them under 3. */
     @Transactional
     public Appointment excuseNoShow(Long appointmentId, String reason, User admin) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
@@ -244,7 +277,7 @@ public class AppointmentService {
         return appointmentRepository.save(appointment);
     }
 
-    //admin gated, no role checks
+    /** Used for cascading cancellations (e.g. account deactivation) — never adds a strike, client isn't at fault. */
     @Transactional
     public void adminCancelAppointment(Long appointmentId, String reason, User admin) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
