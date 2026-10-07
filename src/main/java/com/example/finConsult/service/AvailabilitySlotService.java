@@ -15,6 +15,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Manages advisor-posted availability slots: creation (with overlap checking),
+ * deletion, and lookups for clients browsing an advisor's availability.
+ */
 @Service
 @AllArgsConstructor
 public class AvailabilitySlotService { // advisors post their new open slots
@@ -22,6 +26,7 @@ public class AvailabilitySlotService { // advisors post their new open slots
     private final AvailabilitySlotRepository availabilitySlotRepository;
     private final AdvisorRepository advisorRepository;
 
+    /** Rejects slots in the past, backwards ranges, and anything overlapping the advisor's existing slots. */
     public AvailabilitySlot createSlot(Long advisorId, CreateSlotRequest request) {
         Advisor advisor = advisorRepository.findById(advisorId)
                 .orElseThrow(() -> new InformationNotFound("Advisor: " + advisorId + " does not exist."));
@@ -51,6 +56,7 @@ public class AvailabilitySlotService { // advisors post their new open slots
         return availabilitySlotRepository.save(newSlot);
     }
 
+    /** Only the owning advisor may delete a slot, and only while it's unbooked. */
     public void deleteSlot(Long advisorId, Long slotId) {
         AvailabilitySlot slot = availabilitySlotRepository.findById(slotId)
                 .orElseThrow(() -> new InformationNotFound("Slot not found"));
@@ -66,6 +72,7 @@ public class AvailabilitySlotService { // advisors post their new open slots
         availabilitySlotRepository.delete(slot);
     }
 
+    /** @return the advisor's available slots, or empty if the advisor is inactive */
     public List<AvailabilitySlot> getAvailableSlots(Long advisorId) {
         Advisor advisor = advisorRepository.findById(advisorId)
                 .orElseThrow(() -> new InformationNotFound("Advisor not found"));
@@ -77,7 +84,7 @@ public class AvailabilitySlotService { // advisors post their new open slots
         return availabilitySlotRepository.findByAdvisorAndStatus(advisor, SlotStatus.AVAILABLE);
     }
 
-// for advisors themselves
+    /** @return every slot the advisor has posted, regardless of status */
     public List<AvailabilitySlot> getMySlots(Long advisorId) {
         Advisor advisor = advisorRepository.findById(advisorId)
                 .orElseThrow(() -> new InformationNotFound("Advisor not found"));

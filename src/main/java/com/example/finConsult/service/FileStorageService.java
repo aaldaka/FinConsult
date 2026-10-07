@@ -14,6 +14,12 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Low-level file storage on local disk under the {@code uploads} directory.
+ * Content type is mapped to a fixed extension rather than trusting the client's
+ * original filename, and loads are confined to the upload directory to prevent
+ * path traversal.
+ */
 @Service
 public class FileStorageService { //main filtere for uploads (Niche profile and kyc doc will filter the acceptable extensions)
 
@@ -26,6 +32,7 @@ public class FileStorageService { //main filtere for uploads (Niche profile and 
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"
     );
 
+    /** Stores a file under {@code uploads/<subfolder>} with a random name, typed off the content type (not the client's filename). */
     public String store(MultipartFile file, String subfolder) {
         if (file == null || file.isEmpty()) { // no file or an empty file
             throw new InvalidRequest("No file was uploaded");
@@ -52,6 +59,7 @@ public class FileStorageService { //main filtere for uploads (Niche profile and 
         }
     }
 
+    /** Resolves a stored path back to a file, rejecting anything outside the upload directory. */
     public Resource load(String storedPath) {
         if (storedPath.isEmpty() || storedPath == null){
             throw new InformationNotFound("File Path not found");

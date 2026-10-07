@@ -16,6 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
+/**
+ * Creates and retrieves in-app notifications, and publishes an event so the SSE
+ * stream (see {@link NotificationStreamService}) can push them to a connected client.
+ */
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
@@ -23,14 +27,17 @@ public class NotificationService {
     private final ApplicationEventPublisher eventPublisher;
     private final ResponseMapper mapper;
 
+    /** @return all of the user's notifications */
     public List<NotificationResponse> getMyNotifications(User user) {
         return notificationRepository.findByUser(user).stream().map(mapper::toNotification).toList();
     }
 
+    /** @return the user's unread notifications */
     public List<NotificationResponse> getMyUnreadNotifications(User user) {
         return notificationRepository.findByUserAndIsReadFalse(user).stream().map(mapper::toNotification).toList();
     }
 
+    /** Marks a notification read; only the recipient may do so. */
     @Transactional
     public NotificationResponse markAsRead(Long notificationId, User user) {
         Notification notification = notificationRepository.findById(notificationId)
@@ -44,6 +51,7 @@ public class NotificationService {
         return mapper.toNotification(notificationRepository.save(notification));
     }
 
+    /** Saves a notification and publishes an event so any open SSE connection gets it immediately. */
     @Transactional
     public Notification create(User user, NotificationType type, String message, Appointment related) {
         Notification notif = new Notification();

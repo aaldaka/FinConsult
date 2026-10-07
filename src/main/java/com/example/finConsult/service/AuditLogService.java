@@ -11,6 +11,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+/**
+ * Records and retrieves audit log entries for sensitive actions across the app
+ * (account changes, appointment lifecycle events, KYC reviews, etc.).
+ */
 @Service
 @RequiredArgsConstructor
 public class AuditLogService {
@@ -26,6 +30,7 @@ public class AuditLogService {
         return logs.map(mapper::toAuditLog);
     }
 
+    /** Persists one entry; details are truncated and must never include passwords or tokens. */
     public void log(User actor, AuditAction action, String entityType, Long entityId, String details) {
         AuditLog entry = new AuditLog();
         entry.setActor(actor); // who did what

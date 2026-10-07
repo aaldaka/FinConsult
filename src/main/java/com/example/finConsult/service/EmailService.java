@@ -7,6 +7,10 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+/**
+ * Sends transactional emails (verification links, password resets) asynchronously
+ * so callers aren't blocked on SMTP.
+ */
 @Slf4j
 @Service
 public class EmailService {
@@ -20,6 +24,7 @@ public class EmailService {
         this.mailSender = mailSender;
     }
 
+    /** Sends a plain-text email async; failures are logged, not thrown, so a mail outage never breaks the caller. */
     @Async
     public void sendEmail(String to, String subject, String body) {
         try {

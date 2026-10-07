@@ -11,6 +11,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Wires up the stateless, JWT-based security filter chain: which endpoints are
+ * public, the password encoder, and the ordering of the JWT/rate-limit filters.
+ */
 @Configuration //to let the java know this is the bean that has the executable code
 @EnableMethodSecurity(prePostEnabled = true) //itll  be checked before and after a method, and we can add (role == "sth) to add more stuff
 @RequiredArgsConstructor
@@ -34,7 +38,10 @@ public class SecurityConfiguration {
                                         "/auth/forget-password",
                                         "/auth/verify-email",
                                         "/uploads/profile_pictures/**", //no need for checks for accessing pics
-                                        "/default.jpg"
+                                        "/default.jpg",
+                                        "/swagger-ui/**",
+                                        "/swagger-ui.html",
+                                        "/v3/api-docs/**"
                                 ).permitAll()
                                 .anyRequest().authenticated()
                 );

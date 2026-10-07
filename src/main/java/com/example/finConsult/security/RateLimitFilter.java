@@ -16,6 +16,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Per-IP rate limiting for brute-force-prone endpoints (login, register,
+ * forget-password), using an in-memory token bucket per client IP.
+ */
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
     private static final Set<String> LIMITED = Set.of( //limited endpoints

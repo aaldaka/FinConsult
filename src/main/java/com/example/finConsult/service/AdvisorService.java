@@ -14,6 +14,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
+/**
+ * Manages advisor accounts: admin-driven creation, profile self-updates, lookups by
+ * specialty, and deactivation (which also cancels the advisor's upcoming appointments).
+ */
 @Service
 @AllArgsConstructor
 public class AdvisorService {
@@ -26,6 +30,7 @@ public class AdvisorService {
     private final AppointmentService appointmentService;
     private final AuditLogService auditLogService;
 
+    /** Admin creates an advisor account, skipping email verification since it's admin-trusted. */
     @Transactional
     public Advisor createAdvisor(AdvisorRequest req, User admin) {
         if (userRepository.existsByEmail(req.getEmail())) {
@@ -72,6 +77,7 @@ public class AdvisorService {
         return advisorRepository.findByActiveTrue();
     }
 
+    /** Cascades to the advisor's pending/confirmed appointments, cancelling each so no client is left stranded. */
     @Transactional
     public void deactivateAdvisor(Long advisorId, String reason, User admin) {
         if (reason == null || reason.isBlank()) {
@@ -98,6 +104,7 @@ public class AdvisorService {
 
     }
 
+    /** Partial update — only non-null fields on the request are applied. */
     @Transactional
     public Advisor updateAdvisor(User user, UpdateAdvisorRequest updateAdvisorRequest){
         Advisor advisor = advisorRepository.findByUser(user)

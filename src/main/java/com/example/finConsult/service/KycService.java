@@ -22,6 +22,10 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Handles KYC document submission and admin review (approve/reject), including
+ * file validation and the duplicate-pending-submission guard.
+ */
 @Service
 @RequiredArgsConstructor
 public class KycService {
@@ -35,6 +39,7 @@ public class KycService {
     private final NotificationService notificationService;
     private final ResponseMapper mapper;
 
+    /** @return the document, only if it's still PENDING */
     private KycDocument findPending(Long id) {
         KycDocument doc = getDocument(id);
         if (doc.getStatus() != KycStatus.PENDING) {
@@ -43,6 +48,7 @@ public class KycService {
         return doc;
     }
 
+    /** Blocks a second submission of the same type while an earlier one is still pending, to stop spam re-submissions. */
     @Transactional
     public KycDocResponse submit(User user, MultipartFile file, DocumentType type) {
         if (file == null || file.isEmpty()) {
@@ -107,6 +113,7 @@ public class KycService {
         return mapper.toKyc(doc);
     }
 
+    /** Requires a rejection reason. */
     @Transactional
     public KycDocResponse reject(Long id, String reason, User admin) {
         if (reason == null || reason.isBlank()) {

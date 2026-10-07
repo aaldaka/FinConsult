@@ -16,6 +16,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+/**
+ * Manages a user's own profile details and profile picture.
+ */
 @Service
 @AllArgsConstructor
 public class ProfileService {
@@ -32,6 +35,7 @@ public class ProfileService {
         return mapper.toProfile(profile);
     }
 
+    /** Partial update — only non-null fields on the request are applied. */
     @Transactional
     public ProfileUpdateResponse updateProfile(User user, UpdateProfileRequest request) {
         Profile profile = getProfileOrThrow(user);
@@ -57,6 +61,7 @@ public class ProfileService {
         return mapper.toProfile(profile);
     }
 
+    /** Replaces the profile picture after validating size and content type. */
     @Transactional
     public ProfileUpdateResponse updateProfilePicture(User user, MultipartFile file) {
         Profile profile = getProfileOrThrow(user);

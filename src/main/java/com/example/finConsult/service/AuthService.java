@@ -29,6 +29,10 @@ import java.util.UUID;
 import static com.example.finConsult.model.enums.UserRole.*;
 import static com.example.finConsult.model.enums.UserStatus.*;
 
+/**
+ * Registration, login, email verification and password management for client
+ * accounts.
+ */
 @AllArgsConstructor
 @Service
 public class AuthService {
@@ -41,6 +45,14 @@ public class AuthService {
     private final VerificationTokenRepository verificationTokenRepository;
     private final EmailService emailService;
 
+    /**
+     * Activates an account using the token emailed at registration.
+     *
+     * @param request carries the verification token
+     * @return a confirmation message
+     * @throws InformationNotFound   if the token doesn't exist
+     * @throws InformationIncorrect  if the token was already used or has expired
+     */
     @Transactional
     public MessageResponse verifyEmail(VerifyEmailRequest request) { // added link verification
         VerificationToken verificationToken = verificationTokenRepository.findByToken(request.getToken())
@@ -63,6 +75,14 @@ public class AuthService {
         return new MessageResponse("Email verified successfully.");
     }
 
+    /**
+     * Registers a new client account, starting it as {@code UNVERIFIED} until the
+     * emailed verification link is used.
+     *
+     * @param request the new account's details
+     * @return the created account's public details (no token yet — must verify first)
+     * @throws EmailExists if the email is already registered
+     */
     @Transactional //following ACID
     public Response register(RegistrationRequest request) {
             if(userRepository.existsByEmail(request.getEmail())){
@@ -102,6 +122,17 @@ public class AuthService {
         return new Response(currentUser.getId(), currentUser.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), currentUser.getRole(), null);
     }
 
+    /**
+     * Authenticates a user and issues a JWT. After the password matches, also rejects
+     * blacklisted accounts (3+ no-show strikes) and accounts that are unverified or
+     * deactivated, so a correct password alone isn't enough to get a token once an
+     * account has been banned or disabled.
+     *
+     * @param request login credentials
+     * @return the account's public details plus a JWT
+     * @throws InformationIncorrect if the email/password is wrong or the account is blacklisted
+     * @throws AccountNotActive     if the account is unverified or deactivated
+     */
     public Response login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new InformationIncorrect("Invalid Email or User does not exist."));
@@ -131,6 +162,14 @@ public class AuthService {
         return new Response(user.getId(), user.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), user.getRole(), token);
     }
 
+    /**
+     * Sends a password reset token by email when the address matches an account.
+     * Always returns the same message regardless of whether the email exists, to
+     * avoid leaking which emails are registered.
+     *
+     * @param pswdReq the email to send a reset token to
+     * @return a generic confirmation message
+     */
     public MessageResponse forgetPassword(ForgetPasswordRequest pswdReq){
         userRepository.findByEmail(pswdReq.getEmail()).ifPresent(user -> {
             String token = UUID.randomUUID().toString();
@@ -152,6 +191,15 @@ public class AuthService {
     }
 
     // change password method - logged in
+    /**
+     * Changes a logged-in user's password after verifying their current one.
+     *
+     * @param email                 the authenticated user's email
+     * @param changePasswordRequest current and new password
+     * @return a confirmation message
+     * @throws InformationNotFound  if the email doesn't match an account
+     * @throws InformationIncorrect if the current password is wrong
+     */
     @Transactional
     public MessageResponse changePassword(String email, ChangePasswordRequest changePasswordRequest) {
         User user = userRepository.findByEmail(email).orElseThrow(()-> new InformationNotFound("Email not found"));

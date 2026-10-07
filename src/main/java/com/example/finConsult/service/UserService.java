@@ -15,6 +15,10 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
+/**
+ * Admin-driven account deactivation for clients (advisors go through
+ * {@link AdvisorService#deactivateAdvisor}, which has its own cascade logic).
+ */
 @Service
 @AllArgsConstructor
 public class UserService {
@@ -23,6 +27,7 @@ public class UserService {
     private final AppointmentService appointmentService;
     private final AuditLogService auditLogService;
 
+    /** Cascades to the client's pending/confirmed appointments via the admin cancel path, so no strike is added. */
     @Transactional
     public void deactivateUser(Long userId, User admin) { // client deactivation
         User user = userRepository.findById(userId)

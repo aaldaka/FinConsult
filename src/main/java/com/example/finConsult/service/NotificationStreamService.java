@@ -9,11 +9,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+/**
+ * Tracks open Server-Sent Events connections per user and pushes notification
+ * payloads to them in real time.
+ */
 @Service
 public class NotificationStreamService {
     // userId -> that user's open connections (one per browser tab or client)
     private final Map<Long, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
+    /** Opens an SSE connection for a user and auto-removes it on completion, timeout or error. */
     public SseEmitter subscribe(Long userId) {
         SseEmitter emitter = new SseEmitter(25 * 60 * 1000L);   // 25 minutes
         emitters.computeIfAbsent(userId, k -> new CopyOnWriteArrayList<>()).add(emitter);
@@ -30,6 +35,7 @@ public class NotificationStreamService {
         return emitter;
     }
 
+    /** Pushes a payload to every open connection for a user, dropping any that fail. */
     public void push(Long userId, Object payload) {
         for (SseEmitter emitter : emitters.getOrDefault(userId, List.of())) {
             try {

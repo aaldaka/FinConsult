@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Date;
 
+/**
+ * Issues and validates the HMAC-signed JWTs used for stateless authentication.
+ */
 @Component
 public class JWTUtils {
 

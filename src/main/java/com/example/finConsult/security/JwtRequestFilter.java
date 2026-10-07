@@ -15,6 +15,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+/**
+ * Runs once per request: if a valid Bearer JWT is present, populates the Spring
+ * Security context so the rest of the chain sees an authenticated user. Silently
+ * leaves the request unauthenticated on any failure, letting the security filter
+ * chain's own 401/403 handling take over downstream.
+ */
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
 

@@ -6,6 +6,10 @@ import com.example.finConsult.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+/**
+ * Maps entities to their public response DTOs, keeping internal fields (and full
+ * related entities) out of API responses.
+ */
 @Component
 @RequiredArgsConstructor
 public class ResponseMapper {
