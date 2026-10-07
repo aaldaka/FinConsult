@@ -47,6 +47,12 @@ public class AppointmentService {
         ServiceType serviceType = serviceTypeRepository.findById(serviceId)
                 .orElseThrow(() -> new InformationNotFound("Service type not found"));
 
+        Specialty requested = serviceType.getRequiredSpecialty();
+        Specialty actual = slot.getAdvisor().getSpecialty();
+        if (requested != null && actual != requested && actual != Specialty.GENERAL) { // checks if the requested specialty matches the slot's advisor
+            throw new InvalidRequest("This advisor does not offer the selected service");
+        }
+
         // added, checks if the slot/specialty requires a KYC and if it is present in the client's records
         if (serviceType.isRequiresKyc()) { // null need to check if the client has any approved docs on his record
             DocumentType needed = serviceType.getRequiredDocumentType();
@@ -88,9 +94,7 @@ public class AppointmentService {
             throw new InvalidRequest("Only pending appointments can be confirmed");
         }
 
-
         appointment.setStatus(AppointmentStatus.CONFIRMED);
-
         notificationService.create(appointment.getClient(), NotificationType.APPOINTMENT_CONFIRMED,
                 "Your appointment has been confirmed!", appointment);
 
