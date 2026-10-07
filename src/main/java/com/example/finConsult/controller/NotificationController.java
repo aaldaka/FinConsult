@@ -1,7 +1,6 @@
 package com.example.finConsult.controller;
 
 import com.example.finConsult.model.User;
-import com.example.finConsult.repository.NotificationRepository;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.NotificationService;
 import com.example.finConsult.service.NotificationStreamService;
@@ -19,6 +18,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class NotificationController {
     private final NotificationService notificationService;
     private final NotificationStreamService streamService;
+
 
     @GetMapping("/mine")
     public ResponseEntity<?> getMyNotifications(@AuthenticationPrincipal UserDetails userDetails) {

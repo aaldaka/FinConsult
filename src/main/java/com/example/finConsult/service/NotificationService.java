@@ -3,6 +3,7 @@ package com.example.finConsult.service;
 import com.example.finConsult.event.NotificationCreatedEvent;
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
+import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.Appointment;
 import com.example.finConsult.model.Notification;
 import com.example.finConsult.model.User;
@@ -20,27 +21,18 @@ import java.util.List;
 public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final ResponseMapper mapper;
 
-    public NotificationResponse toResponse(Notification notif) {
-        return new NotificationResponse(
-                notif.getId(),
-                notif.getType(),
-                notif.getMessage(),
-                notif.isRead(),
-                notif.getRelatedAppointment() == null ? null : notif.getRelatedAppointment().getId(),
-                notif.getCreatedAt());
+    public List<NotificationResponse> getMyNotifications(User user) {
+        return notificationRepository.findByUser(user).stream().map(mapper::toNotification).toList();
     }
 
-    public List<Notification> getMyNotifications(User user) {
-        return notificationRepository.findByUser(user);
-    }
-
-    public List<Notification> getMyUnreadNotifications(User user) {
-        return notificationRepository.findByUserAndIsReadFalse(user);
+    public List<NotificationResponse> getMyUnreadNotifications(User user) {
+        return notificationRepository.findByUserAndIsReadFalse(user).stream().map(mapper::toNotification).toList();
     }
 
     @Transactional
-    public Notification markAsRead(Long notificationId, User user) {
+    public NotificationResponse markAsRead(Long notificationId, User user) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new InformationNotFound("Notification not found"));
 
@@ -49,8 +41,9 @@ public class NotificationService {
         }
 
         notification.setRead(true);
-        return notificationRepository.save(notification);
+        return mapper.toNotification(notificationRepository.save(notification));
     }
+
     @Transactional
     public Notification create(User user, NotificationType type, String message, Appointment related) {
         Notification notif = new Notification();
@@ -59,7 +52,7 @@ public class NotificationService {
         notif.setMessage(message);
         notif.setRelatedAppointment(related);
         notif = notificationRepository.save(notif);
-        eventPublisher.publishEvent(new NotificationCreatedEvent(user.getId(), toResponse(notif)));
+        eventPublisher.publishEvent(new NotificationCreatedEvent(user.getId(), mapper.toNotification(notif)));
         return notif;
     }
 
