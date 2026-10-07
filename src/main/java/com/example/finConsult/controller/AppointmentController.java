@@ -1,6 +1,7 @@
 package com.example.finConsult.controller;
 
 import com.example.finConsult.exception.InformationNotFound;
+import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.Advisor;
 import com.example.finConsult.model.Appointment;
 import com.example.finConsult.model.User;
@@ -29,13 +30,14 @@ public class AppointmentController { // patch to partially update things instead
 
     private final AppointmentService appointmentService;
     private final AdvisorRepository advisorRepository;
+    private final ResponseMapper mapper;
 
     @PostMapping("/book/{slotId}")
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<?> bookSlot(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Long slotId, @Valid @RequestBody BookAppointmentRequest bookAppointmentRequest) {
          User client = ((MyUserDetails) userDetails).getUser();
          Appointment appointment = appointmentService.bookSlot(client, slotId, bookAppointmentRequest.getServiceTypeId());
-         return ResponseEntity.ok(appointment);
+        return ResponseEntity.ok(mapper.toAppointment(appointment));
     }
 
     @PatchMapping("/{id}/confirm")
@@ -44,7 +46,7 @@ public class AppointmentController { // patch to partially update things instead
          User user = ((MyUserDetails) userDetails).getUser();
          Advisor advisor = advisorRepository.findByUser(user).orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
          Appointment appointment = appointmentService.confirmAppointment(advisor.getId(), id);
-         return ResponseEntity.ok(appointment);
+        return ResponseEntity.ok(mapper.toAppointment(appointment));
     }
 
     @PatchMapping("/{id}/cancel")
@@ -62,10 +64,11 @@ public class AppointmentController { // patch to partially update things instead
         if (user.getRole() == UserRole.ADVISOR) {
             Advisor advisor = advisorRepository.findByUser(user)
                     .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
-            return ResponseEntity.ok(appointmentService.getAdvisorAppointments(advisor.getId(), status, sortBy));
+            return ResponseEntity.ok(appointmentService.getAdvisorAppointments(advisor.getId(), status, sortBy)
+                    .stream().map(mapper::toAppointment).toList());
         } else {
-            return ResponseEntity.ok(appointmentService.getClientAppointments(user, status, sortBy));
-        }
+            return ResponseEntity.ok(appointmentService.getClientAppointments(user, status, sortBy)
+                    .stream().map(mapper::toAppointment).toList());        }
     }
 
     @PatchMapping("/{id}/no-show")
@@ -74,7 +77,7 @@ public class AppointmentController { // patch to partially update things instead
         User user = ((MyUserDetails) userDetails).getUser();
         Advisor advisor = advisorRepository.findByUser(user)
                 .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
-        return ResponseEntity.ok(appointmentService.markNoShow(advisor.getId(), id));
+        return ResponseEntity.ok(mapper.toAppointment(appointmentService.markNoShow(advisor.getId(), id)));
     }
 
     @PatchMapping("/{id}/excuse")

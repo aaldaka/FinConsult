@@ -2,6 +2,7 @@ package com.example.finConsult.service;
 
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
+import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.KycDocument;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.AuditAction;
@@ -32,13 +33,7 @@ public class KycService {
     private final FileStorageService fileStorageService;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
-
-    private KycDocResponse toResponse(KycDocument d) {
-        return new KycDocResponse(
-                d.getId(), d.getUser().getEmail(), d.getDocumentType(),
-                d.getOriginalFileName(), d.getFileSize(), d.getStatus(),
-                d.getRejectionReason(), d.getCreatedAt(), d.getReviewedAt());
-    }
+    private final ResponseMapper mapper;
 
     private KycDocument findPending(Long id) {
         KycDocument doc = getDocument(id);
@@ -82,18 +77,18 @@ public class KycService {
 
         auditLogService.log(user, AuditAction.KYC_SUBMITTED, "KycDocument", doc.getId(),
                 "Submitted " + type);
-        return toResponse(doc);
+        return mapper.toKyc(doc);
     }
 
     public List<KycDocResponse> getMyDocuments(User user) {
-        return kycDocumentRepository.findByUser(user).stream().map(this::toResponse).toList();
+        return kycDocumentRepository.findByUser(user).stream().map(mapper::toKyc).toList();
     }
 
     public Page<KycDocResponse> getByStatus(KycStatus status, Pageable p, DocumentType docType) {
         Page<KycDocument> docs = (docType == null)
                 ? kycDocumentRepository.findByStatus(status, p)
                 : kycDocumentRepository.findByStatusAndDocumentType(status, docType, p);
-        return docs.map(this::toResponse);
+        return docs.map(mapper::toKyc);
     }
 
     @Transactional
@@ -109,7 +104,7 @@ public class KycService {
 
         auditLogService.log(admin, AuditAction.KYC_APPROVED, "KycDocument", id,
                 "Approved " + doc.getDocumentType() + " for " + doc.getUser().getEmail());
-        return toResponse(doc);
+        return mapper.toKyc(doc);
     }
 
     @Transactional
@@ -129,7 +124,7 @@ public class KycService {
 
         auditLogService.log(admin, AuditAction.KYC_REJECTED, "KycDocument", id,
                 "Rejected " + doc.getDocumentType() + " for " + doc.getUser().getEmail());
-        return toResponse(doc);
+        return mapper.toKyc(doc);
     }
 
 
