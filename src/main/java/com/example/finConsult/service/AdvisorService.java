@@ -2,6 +2,7 @@ package com.example.finConsult.service;
 
 import com.example.finConsult.exception.EmailExists;
 import com.example.finConsult.exception.InformationNotFound;
+import com.example.finConsult.exception.InvalidRequest;
 import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.*;
 import com.example.finConsult.model.request.AdvisorRequest;
@@ -11,8 +12,6 @@ import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -68,6 +67,10 @@ public class AdvisorService {
 
     @Transactional
     public void deactivateAdvisor(Long advisorId, String reason, User admin) {
+        if (reason == null || reason.isBlank()) {
+            throw new InvalidRequest("A reason is required");
+        }
+
         Advisor advisor = getById(advisorId);
         advisor.setActive(false);
         advisorRepository.save(advisor);

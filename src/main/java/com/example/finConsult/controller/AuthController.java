@@ -50,13 +50,6 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-//    @PostMapping("/verify-email")
-//    public ResponseEntity<MessageResponse> verifyEmail(@Valid @RequestBody VerifyEmailRequest verifyEmailRequest){
-//        System.out.println("CONTROLLER: Calling verifyEmail");
-//        MessageResponse response = authService.verifyEmail(verifyEmailRequest);
-//        return ResponseEntity.ok(response);
-//    }
-
     @GetMapping("/verify-email")
     public ResponseEntity<String> verifyEmail(@RequestParam String token){
         System.out.println("CONTROLLER: Calling verifyEmail");

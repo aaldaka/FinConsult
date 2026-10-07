@@ -27,11 +27,6 @@ public class AppointmentService {
     private final NotificationService notificationService;
 
     @Transactional
-    public void cancelAppointment(Long appointmentId, User cancelledBy) {
-        cancelAppointment(appointmentId, cancelledBy, null);
-    }
-
-    @Transactional
     public Appointment bookSlot(User client, Long slotId, Long serviceId) {
         AvailabilitySlot slot = availabilitySlotRepository.findById(slotId)
                 .orElseThrow(() -> new InformationNotFound("Slot not found"));
@@ -103,13 +98,13 @@ public class AppointmentService {
 
     @Transactional
     public void cancelAppointment(Long appointmentId, User cancelledBy, String additionalNotes) {
+        String notes = (additionalNotes == null || additionalNotes.isBlank()) ? null : additionalNotes.trim();
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new InformationNotFound("Appointment not found"));
 
         boolean isClient = appointment.getClient().getId().equals(cancelledBy.getId());
         boolean isAdvisor = appointment.getAdvisor().getUser().getId().equals(cancelledBy.getId());
 
-        //confirm either the proper client or the advisor is the one who cancelled
         if (!isClient && !isAdvisor) {
             throw new InvalidRequest("You are not authorized to cancel this appointment");
         }
@@ -123,14 +118,12 @@ public class AppointmentService {
         String reason;
 
         if (isAdvisor) {
-            reason = additionalNotes != null ? additionalNotes : "Cancelled by Advisor";
-        } // if the current time is before the appointment (minus a day) ie u met the minimum required for the cancellation
-        else if (LocalDateTime.now().isBefore(appointment.getSlot().getStartTime().minusHours(CANCELLATION_STRIKE_WINDOW_HOURS))){
-            reason = additionalNotes != null ? additionalNotes : "Cancelled by Client";
-
-            } else {// if the current time is before the appointment (minus a day) ie u met the minimum required for the cancellation
+            reason = notes != null ? notes : "Cancelled by Advisor";
+        } else if (LocalDateTime.now().isBefore(appointment.getSlot().getStartTime().minusHours(CANCELLATION_STRIKE_WINDOW_HOURS))){
+            reason = notes != null ? notes : "Cancelled by Client";
+        } else {
             reason = "Cancelled by Client less than the accepted cancellation window"
-                    + (additionalNotes != null ? " — reason given: " + additionalNotes : "");
+                    + (notes != null ? " — reason given: " + notes : "");
                 User client = appointment.getClient();
                 client.setNoShowStrikes(client.getNoShowStrikes() + 1);
 
@@ -214,6 +207,10 @@ public class AppointmentService {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new InformationNotFound("Appointment not found"));
 
+        if (reason == null || reason.isBlank()) {
+            throw new InvalidRequest("A reason is required");
+        }
+
         if (!appointment.getStatus().equals(AppointmentStatus.NO_SHOW)){
             throw new InvalidRequest("Appointment was not marked as a No-Show");
         }
@@ -242,6 +239,10 @@ public class AppointmentService {
 
         if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW)) {
             throw new InvalidRequest("Cannot cancel an appointment that is marked as Cancelled or No Show");
+        }
+
+        if (reason == null || reason.isBlank()) {
+            throw new InvalidRequest("A reason is required");
         }
 
         appointment.setStatus(AppointmentStatus.CANCELLED);
