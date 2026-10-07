@@ -31,9 +31,7 @@ import java.util.List;
 @RequestMapping("/kyc")
 @RequiredArgsConstructor
 public class KycController {
-
     private final KycService kycService;
-    private final AuditLogService auditLogService;
 
     @PostMapping
     @PreAuthorize("hasRole('CLIENT')")
