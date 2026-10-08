@@ -17,7 +17,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Slf4j
 @Service
 public class NotificationStreamService {
-    // userId -> that user's open connections (one per browser tab or client)
     private final Map<Long, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     /** Opens an SSE connection for a user and auto-removes it on completion, timeout or error. */

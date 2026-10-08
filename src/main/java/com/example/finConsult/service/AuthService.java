@@ -125,11 +125,12 @@ public class AuthService {
         verificationToken.setExpiresAt(LocalDateTime.now().plusHours(24));
         verificationTokenRepository.save(verificationToken);
 
-        emailService.sendEmail( //to, sub, body || send link when frontend is ready
+        String frontendUrl = environment.getProperty("app.frontend-url", "http://localhost:5173");
+
+        emailService.sendEmail(
                 currentUser.getEmail(),
                 "Verify your FinConsult email",
-//                "Please verify your email using this token: " + verifyToken + "\n\nThis token expires in 24 hours."
-                "Click to verify your email: http://localhost:8080/auth/verify-email?token=" + verifyToken
+                "Click to verify your email: " + frontendUrl + "/verify-email?token=" + verifyToken
                         + "\n\nThis link expires in 24 hours.",
                 "verification"
         );
@@ -213,7 +214,6 @@ public class AuthService {
                     user.getEmail(),
                     "Reset your FinConsult password",
                     "Click to reset your password: " + frontendUrl + "/reset-password?token=" + token
-                            + "\n\nOr use this token directly: " + token
                             + "\n\nThis link expires in " + RESET_TOKEN_MINUTES + " minutes. If you didn't request this, ignore this email.",
                     "password-reset"
             );
