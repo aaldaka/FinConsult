@@ -18,6 +18,10 @@ interface FormValues {
   finishingTime: string
 }
 
+function toLocalDateTime(value: string): string {
+  return value.length === 16 ? `${value}:00` : value
+}
+
 export function SlotsPage() {
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState<string | null>(null)
