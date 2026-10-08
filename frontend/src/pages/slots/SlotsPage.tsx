@@ -28,10 +28,10 @@ export function SlotsPage() {
 
   const createMutation = useMutation({
     mutationFn: (values: FormValues) =>
-      createSlot({
-        startingTime: new Date(values.startingTime).toISOString(),
-        finishingTime: new Date(values.finishingTime).toISOString(),
-      }),
+        createSlot({
+          startingTime: toLocalDateTime(values.startingTime),
+          finishingTime: toLocalDateTime(values.finishingTime),
+        }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['slots', 'mine'] })
       reset()
