@@ -44,7 +44,6 @@ public class AuthController {
     @SecurityRequirements
     @PostMapping("/login")
     public ResponseEntity<Response> login(@Valid @RequestBody LoginRequest req){
-        System.out.println("CONTROLLER: Calling login");
         Response response = authService.login(req);
         return ResponseEntity.ok(response); //ok 200
     }
@@ -58,7 +57,6 @@ public class AuthController {
     @SecurityRequirements
     @PostMapping("/register") //returning data
     public ResponseEntity<Response> register(@Valid @RequestBody RegistrationRequest req){
-        System.out.println("CONTROLLER: Calling register");
         Response response = authService.register(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(response); //201 with metadata
     }
@@ -71,8 +69,20 @@ public class AuthController {
     @SecurityRequirements
     @PostMapping("/forget-password") //just a msg
     public ResponseEntity<MessageResponse> forgetPassword(@Valid @RequestBody ForgetPasswordRequest req){
-        System.out.println("CONTROLLER: Calling forgetPassword");
         MessageResponse response = authService.forgetPassword(req);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Reset a forgotten password using the emailed token")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Password reset", content = @Content(schema = @Schema(implementation = MessageResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Validation error, or the token is invalid/used/expired", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Account is deactivated", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @SecurityRequirements
+    @PostMapping("/reset-password")
+    public ResponseEntity<MessageResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest req){
+        MessageResponse response = authService.resetPassword(req);
         return ResponseEntity.ok(response);
     }
 
@@ -101,7 +111,6 @@ public class AuthController {
     @SecurityRequirements
     @GetMapping("/verify-email")
     public ResponseEntity<String> verifyEmail(@Parameter(description = "Token emailed to the user when they registered") @RequestParam String token){
-        System.out.println("CONTROLLER: Calling verifyEmail");
         VerifyEmailRequest req = new VerifyEmailRequest();
         req.setToken(token);
         MessageResponse response = authService.verifyEmail(req);

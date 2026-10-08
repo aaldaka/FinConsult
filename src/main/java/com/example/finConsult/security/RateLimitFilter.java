@@ -7,6 +7,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -18,12 +19,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Per-IP rate limiting for brute-force-prone endpoints (login, register,
- * forget-password), using an in-memory token bucket per client IP.
+ * forget-password, reset-password), using an in-memory token bucket per client IP.
  */
+@Slf4j
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
     private static final Set<String> LIMITED = Set.of( //limited endpoints
-            "/auth/login", "/auth/register", "/auth/forget-password");
+            "/auth/login", "/auth/register", "/auth/forget-password", "/auth/reset-password");
 
     // one bucket per client IP (in memory, resets on restart)
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
@@ -55,6 +57,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         long retryAfter = (long) Math.ceil(probe.getNanosToWaitForRefill() / 1_000_000_000.0); //convert to seconds + round up
+        log.warn("Rate limit exceeded for {} on {}", ip, request.getRequestURI());
         response.setStatus(429); // too many requests
         response.setHeader("Retry-After", String.valueOf(retryAfter));
         response.setContentType("application/json");

@@ -5,6 +5,7 @@ import com.example.finConsult.exception.AccountNotActive;
 import com.example.finConsult.exception.EmailExists;
 import com.example.finConsult.exception.InformationIncorrect;
 import com.example.finConsult.exception.InformationNotFound;
+import com.example.finConsult.exception.InvalidRequest;
 import com.example.finConsult.model.PasswordResetToken;
 import com.example.finConsult.model.Profile;
 import com.example.finConsult.model.User;
@@ -20,6 +21,8 @@ import com.example.finConsult.repository.VerificationTokenRepository;
 import com.example.finConsult.security.JWTUtils;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -33,9 +36,13 @@ import static com.example.finConsult.model.enums.UserStatus.*;
  * Registration, login, email verification and password management for client
  * accounts.
  */
+@Slf4j
 @AllArgsConstructor
 @Service
 public class AuthService {
+
+    /** How long a password reset token stays valid, in minutes; drives both the token's expiry and the emailed text. */
+    private static final int RESET_TOKEN_MINUTES = 5;
 
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
@@ -44,6 +51,7 @@ public class AuthService {
     private final JWTUtils jwtUtils;
     private final VerificationTokenRepository verificationTokenRepository;
     private final EmailService emailService;
+    private final Environment environment;
 
     /**
      * Activates an account using the token emailed at registration.
@@ -56,12 +64,17 @@ public class AuthService {
     @Transactional
     public MessageResponse verifyEmail(VerifyEmailRequest request) { // added link verification
         VerificationToken verificationToken = verificationTokenRepository.findByToken(request.getToken())
-                .orElseThrow(() -> new InformationNotFound("Invalid verification token."));
+                .orElseThrow(() -> {
+                    log.warn("Email verification rejected: token not found");
+                    return new InformationNotFound("Invalid verification token.");
+                });
 
         if (verificationToken.isUsed()) {
+            log.warn("Email verification rejected: token already used for user {}", verificationToken.getUser().getId());
             throw new InformationIncorrect("This verification link has been used.");
         }
         if (verificationToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn("Email verification rejected: token expired for user {}", verificationToken.getUser().getId());
             throw new InformationIncorrect("This verification link has expired. Resend another request.");
         }
 
@@ -72,6 +85,7 @@ public class AuthService {
         verificationToken.setUsed(true);
         verificationTokenRepository.save(verificationToken);
 
+        log.info("Email verified for user {}", user.getId());
         return new MessageResponse("Email verified successfully.");
     }
 
@@ -86,6 +100,7 @@ public class AuthService {
     @Transactional //following ACID
     public Response register(RegistrationRequest request) {
             if(userRepository.existsByEmail(request.getEmail())){
+                log.warn("Registration rejected: email {} already in use", request.getEmail());
                 throw new EmailExists("This email is already in use.");
             }
 
@@ -115,9 +130,11 @@ public class AuthService {
                 "Verify your FinConsult email",
 //                "Please verify your email using this token: " + verifyToken + "\n\nThis token expires in 24 hours."
                 "Click to verify your email: http://localhost:8080/auth/verify-email?token=" + verifyToken
-                        + "\n\nThis link expires in 24 hours."
+                        + "\n\nThis link expires in 24 hours.",
+                "verification"
         );
 
+        log.info("User {} registered", currentUser.getId());
 // initially when registering null no token
         return new Response(currentUser.getId(), currentUser.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), currentUser.getRole(), null);
     }
@@ -135,22 +152,29 @@ public class AuthService {
      */
     public Response login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new InformationIncorrect("Invalid Email or User does not exist."));
+                .orElseThrow(() -> {
+                    log.warn("Login failed: unknown email {}", request.getEmail());
+                    return new InformationIncorrect("Invalid Email or User does not exist.");
+                });
 
         String pswd = request.getPassword();
         if (!passwordEncoder.matches(pswd, user.getPassword())){
+            log.warn("Login failed: incorrect password for user {}", user.getId());
             throw new InformationIncorrect("Entered password is incorrect.");
         }
 
         if (user.isBlacklisted()) {
+            log.warn("Login blocked: user {} is blacklisted", user.getId());
             throw new InformationIncorrect("This account is blocked from logging in");
         }
 
         if (user.getUserStatus() == UserStatus.UNVERIFIED) {
+            log.warn("Login blocked: user {} is unverified", user.getId());
             throw new AccountNotActive("Please verify your email.");
         }
 
         if (user.getUserStatus() == UserStatus.INACTIVE) {
+            log.warn("Login blocked: user {} is deactivated", user.getId());
             throw new AccountNotActive("This account has been deactivated");
         }
 
@@ -159,6 +183,7 @@ public class AuthService {
 
         String token = jwtUtils.generateToken(user.getEmail());
 
+        log.info("User {} logged in with role {}", user.getId(), user.getRole());
         return new Response(user.getId(), user.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), user.getRole(), token);
     }
 
@@ -171,23 +196,77 @@ public class AuthService {
      * @return a generic confirmation message
      */
     public MessageResponse forgetPassword(ForgetPasswordRequest pswdReq){
+        log.info("Password reset requested for email {}", pswdReq.getEmail());
+
         userRepository.findByEmail(pswdReq.getEmail()).ifPresent(user -> {
             String token = UUID.randomUUID().toString();
 
             PasswordResetToken resetToken = new PasswordResetToken();
             resetToken.setUser(user);
             resetToken.setToken(token);
-            resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+            resetToken.setExpiresAt(LocalDateTime.now().plusMinutes(RESET_TOKEN_MINUTES));
             passwordResetTokenRepository.save(resetToken);
 
-            emailService.sendEmail( //send link when frontend is ready
+            String frontendUrl = environment.getProperty("app.frontend-url", "http://localhost:5173");
+
+            emailService.sendEmail(
                     user.getEmail(),
                     "Reset your FinConsult password",
-                    "Use this token to reset your password: " + token + "\n\nThis token expires in 15 minutes. If you didn't request this, ignore this email."
+                    "Click to reset your password: " + frontendUrl + "/reset-password?token=" + token
+                            + "\n\nOr use this token directly: " + token
+                            + "\n\nThis link expires in " + RESET_TOKEN_MINUTES + " minutes. If you didn't request this, ignore this email.",
+                    "password-reset"
             );
         });
 
         return new MessageResponse("A password reset link has been sent to the designated email.");
+    }
+
+    /**
+     * Resets a user's password using the emailed token. Every failure path (missing,
+     * used, or expired token) returns the exact same message, so an attacker probing
+     * tokens can't tell which reason applied. On success, every other unused reset
+     * token belonging to the user is invalidated too, so an older emailed link can't
+     * still be used after a newer one succeeded.
+     *
+     * @param request the reset token and new password
+     * @return a confirmation message
+     * @throws InvalidRequest   if the token doesn't exist, was already used, or has expired
+     * @throws AccountNotActive if the account is deactivated
+     */
+    @Transactional
+    public MessageResponse resetPassword(ResetPasswordRequest request) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
+                .orElseThrow(() -> {
+                    log.warn("Password reset rejected: token not found");
+                    return new InvalidRequest("Invalid or expired reset token");
+                });
+
+        if (resetToken.isUsed() || resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn("Password reset rejected: token already used or expired for user {}", resetToken.getUser().getId());
+            throw new InvalidRequest("Invalid or expired reset token");
+        }
+
+        User user = resetToken.getUser();
+
+        if (user.getUserStatus() == UserStatus.INACTIVE) {
+            log.warn("Password reset blocked: user {} is deactivated", user.getId());
+            throw new AccountNotActive("This account has been deactivated");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        for (PasswordResetToken other : passwordResetTokenRepository.findByUserAndUsedFalse(user)) {
+            other.setUsed(true);
+            passwordResetTokenRepository.save(other);
+        }
+
+        log.info("Password reset completed for user {}", user.getId());
+        return new MessageResponse("Password has been reset. You can now log in.");
     }
 
     // change password method - logged in
@@ -205,11 +284,13 @@ public class AuthService {
         User user = userRepository.findByEmail(email).orElseThrow(()-> new InformationNotFound("Email not found"));
 
         if (!passwordEncoder.matches(changePasswordRequest.getCurrentPassword(), user.getPassword())){
+            log.warn("Password change failed: incorrect current password for user {}", user.getId());
             throw new InformationIncorrect("Entered password (current) is incorrect.");
         }
 
         user.setPassword(passwordEncoder.encode(changePasswordRequest.getNewPassword())); //encode it
         userRepository.save(user);
+        log.info("Password changed for user {}", user.getId());
         return new MessageResponse("Password changed successfully.");
     }
 
