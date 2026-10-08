@@ -1,0 +1,182 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+
+/*
+ * FinConsult design tokens — refined "trust navy + premium gold" banking palette.
+ * Components must reference these (bg-navy, text-gold, ...) and never hardcode hex.
+ */
+@theme {
+  --color-navy: #0b1120;
+  --color-royal: #1e3a8a;
+  --color-gold: #c9a24b;
+  --color-gold-deep: #a16207; /* 4.5:1+ on white — use for gold TEXT/icons, not just fills */
+  --color-success: #10b981;
+  --color-pending: #f59e0b;
+  --color-danger: #dc2626;
+
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+  --color-ink: #0f172a;
+  --color-muted: #475569;
+  --color-hairline: #e2e8f0;
+
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-xl: 0.75rem;
+
+  /* Soft layered shadows for the glossy-but-restrained card treatment. */
+  --shadow-card: 0 1px 2px rgb(11 31 58 / 0.04), 0 4px 12px rgb(11 31 58 / 0.06);
+  --shadow-lifted: 0 8px 24px rgb(11 31 58 / 0.12), 0 2px 6px rgb(11 31 58 / 0.06);
+  --shadow-glass: 0 8px 40px rgb(11 31 58 / 0.18);
+
+  /* Snappy-deceleration curves for entrances/hovers; keep UI transitions in the 150-300ms band. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+  }
+
+  /* Dates, times and amounts line up in tables. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    @apply outline-gold outline-2 outline-offset-2;
+  }
+
+  /* Respect the user's OS-level motion preference before anything else loads. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility gradient-navy {
+  background-image: linear-gradient(160deg, var(--color-navy) 0%, var(--color-royal) 100%);
+}
+
+/* Frosted glass treatment for the top nav — used sparingly, not on every surface. */
+@utility glass-nav {
+  background-image: linear-gradient(160deg, rgb(11 17 32 / 0.9) 0%, rgb(30 58 138 / 0.86) 100%);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+@utility card-interactive {
+  transition:
+    transform 200ms var(--ease-out-expo),
+    box-shadow 200ms var(--ease-out-expo),
+    border-color 200ms var(--ease-out-expo);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lifted);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@utility animate-fade-in-up {
+  animation: fade-in-up 0.45s var(--ease-out-expo) both;
+}
+@utility animate-fade-in {
+  animation: fade-in 0.3s ease-out both;
+}
+@utility animate-scale-in {
+  animation: scale-in 0.22s var(--ease-out-expo) both;
+}
+@utility animate-shimmer {
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Staggered entrance for grids/lists. Capped at 10 items — beyond that the extra
+   delay makes long lists feel sluggish, so items past #10 all share the last delay. */
+@layer utilities {
+  .stagger > * {
+    animation: fade-in-up 0.45s var(--ease-out-expo) both;
+  }
+  .stagger > *:nth-child(1) {
+    animation-delay: 0ms;
+  }
+  .stagger > *:nth-child(2) {
+    animation-delay: 40ms;
+  }
+  .stagger > *:nth-child(3) {
+    animation-delay: 80ms;
+  }
+  .stagger > *:nth-child(4) {
+    animation-delay: 120ms;
+  }
+  .stagger > *:nth-child(5) {
+    animation-delay: 160ms;
+  }
+  .stagger > *:nth-child(6) {
+    animation-delay: 200ms;
+  }
+  .stagger > *:nth-child(7) {
+    animation-delay: 240ms;
+  }
+  .stagger > *:nth-child(8) {
+    animation-delay: 280ms;
+  }
+  .stagger > *:nth-child(9) {
+    animation-delay: 320ms;
+  }
+  .stagger > *:nth-child(n + 10) {
+    animation-delay: 360ms;
+  }
+}
