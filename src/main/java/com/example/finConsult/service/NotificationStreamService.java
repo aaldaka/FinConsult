@@ -1,5 +1,6 @@
 package com.example.finConsult.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -13,6 +14,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Tracks open Server-Sent Events connections per user and pushes notification
  * payloads to them in real time.
  */
+@Slf4j
 @Service
 public class NotificationStreamService {
     // userId -> that user's open connections (one per browser tab or client)
@@ -22,10 +24,20 @@ public class NotificationStreamService {
     public SseEmitter subscribe(Long userId) {
         SseEmitter emitter = new SseEmitter(25 * 60 * 1000L);   // 25 minutes
         emitters.computeIfAbsent(userId, k -> new CopyOnWriteArrayList<>()).add(emitter);
+        log.debug("SSE subscriber connected for user {}", userId);
 
-        emitter.onCompletion(() -> remove(userId, emitter));
-        emitter.onTimeout(() -> remove(userId, emitter));
-        emitter.onError(e -> remove(userId, emitter));
+        emitter.onCompletion(() -> {
+            remove(userId, emitter);
+            log.debug("SSE subscriber disconnected for user {}", userId);
+        });
+        emitter.onTimeout(() -> {
+            remove(userId, emitter);
+            log.debug("SSE subscriber timed out for user {}", userId);
+        });
+        emitter.onError(e -> {
+            remove(userId, emitter);
+            log.debug("SSE subscriber error for user {}", userId);
+        });
 
         try {
             emitter.send(SseEmitter.event().name("connected").data("ok"));
@@ -42,6 +54,7 @@ public class NotificationStreamService {
                 emitter.send(SseEmitter.event().name("notification").data(payload));
             } catch (IOException e) {
                 remove(userId, emitter);
+                log.warn("Failed to push notification to user {}", userId);
             }
         }
     }

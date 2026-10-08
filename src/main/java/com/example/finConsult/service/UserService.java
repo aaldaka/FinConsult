@@ -12,6 +12,7 @@ import com.example.finConsult.repository.AppointmentRepository;
 import com.example.finConsult.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
@@ -19,6 +20,7 @@ import java.util.List;
  * Admin-driven account deactivation for clients (advisors go through
  * {@link AdvisorService#deactivateAdvisor}, which has its own cascade logic).
  */
+@Slf4j
 @Service
 @AllArgsConstructor
 public class UserService {
@@ -41,12 +43,16 @@ public class UserService {
         userRepository.save(user);
         auditLogService.log(admin, AuditAction.USER_DEACTIVATED, "User", userId, "Account deactivated");
 
+        int cancelledCount = 0;
         if (user.getRole() == UserRole.CLIENT) {
             List<Appointment> upcoming = appointmentRepository
                     .findByClientAndStatusIn(user, List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED));
             for (Appointment appt : upcoming) {
                 appointmentService.adminCancelAppointment(appt.getId(), "Client account was deactivated", admin);
             }
+            cancelledCount = upcoming.size();
         }
+
+        log.info("User {} deactivated by admin {} ({} appointments cancelled)", userId, admin.getId(), cancelledCount);
     }
 }

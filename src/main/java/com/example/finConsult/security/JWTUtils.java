@@ -4,6 +4,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.JwtException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -13,6 +14,7 @@ import java.util.Date;
 /**
  * Issues and validates the HMAC-signed JWTs used for stateless authentication.
  */
+@Slf4j
 @Component
 public class JWTUtils {
 
@@ -56,7 +58,7 @@ public class JWTUtils {
                     .parseSignedClaims(authToken);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
-            System.out.println("Invalid JWT: " + e.getMessage());
+            log.warn("Invalid JWT rejected: {}", e.getMessage());
             return false;
         }
     }

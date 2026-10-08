@@ -11,6 +11,7 @@ import com.example.finConsult.model.enums.NotificationType;
 import com.example.finConsult.model.response.NotificationResponse;
 import com.example.finConsult.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ import java.util.List;
  * Creates and retrieves in-app notifications, and publishes an event so the SSE
  * stream (see {@link NotificationStreamService}) can push them to a connected client.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
@@ -61,6 +63,7 @@ public class NotificationService {
         notif.setRelatedAppointment(related);
         notif = notificationRepository.save(notif);
         eventPublisher.publishEvent(new NotificationCreatedEvent(user.getId(), mapper.toNotification(notif)));
+        log.debug("Notification created for user {} (type {})", user.getId(), type);
         return notif;
     }
 

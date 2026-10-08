@@ -9,6 +9,7 @@ import com.example.finConsult.model.request.CreateSlotRequest;
 import com.example.finConsult.repository.AdvisorRepository;
 import com.example.finConsult.repository.AvailabilitySlotRepository;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -19,6 +20,7 @@ import java.util.Optional;
  * Manages advisor-posted availability slots: creation (with overlap checking),
  * deletion, and lookups for clients browsing an advisor's availability.
  */
+@Slf4j
 @Service
 @AllArgsConstructor
 public class AvailabilitySlotService { // advisors post their new open slots
@@ -53,7 +55,9 @@ public class AvailabilitySlotService { // advisors post their new open slots
         newSlot.setStartTime(request.getStartingTime());
         newSlot.setEndTime(request.getFinishingTime());
         newSlot.setStatus(SlotStatus.AVAILABLE);
-        return availabilitySlotRepository.save(newSlot);
+        newSlot = availabilitySlotRepository.save(newSlot);
+        log.info("Slot {} created by advisor {}", newSlot.getId(), advisorId);
+        return newSlot;
     }
 
     /** Only the owning advisor may delete a slot, and only while it's unbooked. */
@@ -70,6 +74,7 @@ public class AvailabilitySlotService { // advisors post their new open slots
         }
 
         availabilitySlotRepository.delete(slot);
+        log.info("Slot {} deleted by advisor {}", slotId, advisorId);
     }
 
     /** @return the advisor's available slots, or empty if the advisor is inactive */

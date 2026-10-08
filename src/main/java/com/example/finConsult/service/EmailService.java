@@ -24,9 +24,14 @@ public class EmailService {
         this.mailSender = mailSender;
     }
 
-    /** Sends a plain-text email async; failures are logged, not thrown, so a mail outage never breaks the caller. */
+    /**
+     * Sends a plain-text email async; failures are logged, not thrown, so a mail
+     * outage never breaks the caller.
+     *
+     * @param type short purpose label for the log line (e.g. "verification", "password-reset") — never the subject or body
+     */
     @Async
-    public void sendEmail(String to, String subject, String body) {
+    public void sendEmail(String to, String subject, String body, String type) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromAddress);
@@ -34,9 +39,9 @@ public class EmailService {
             message.setSubject(subject);
             message.setText(body);
             mailSender.send(message);
+            log.info("Email sent: type={}", type);
         } catch (RuntimeException e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
-
+            log.error("Failed to send email to {} (type={})", to, type, e);
         }
     }
 }

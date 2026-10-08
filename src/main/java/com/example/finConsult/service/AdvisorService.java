@@ -9,6 +9,7 @@ import com.example.finConsult.model.request.AdvisorRequest;
 import com.example.finConsult.model.request.UpdateAdvisorRequest;
 import com.example.finConsult.repository.*;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import java.util.List;
  * Manages advisor accounts: admin-driven creation, profile self-updates, lookups by
  * specialty, and deactivation (which also cancels the advisor's upcoming appointments).
  */
+@Slf4j
 @Service
 @AllArgsConstructor
 public class AdvisorService {
@@ -61,6 +63,7 @@ public class AdvisorService {
         Advisor saved = advisorRepository.save(advisor);
         auditLogService.log(admin, AuditAction.ADVISOR_CREATED, "Advisor", saved.getId(),
                 "Created advisor account for " + req.getEmail());
+        log.info("Advisor {} created by admin {} (user {})", saved.getId(), admin.getId(), user.getId());
         return saved;
     }
 
@@ -102,6 +105,7 @@ public class AdvisorService {
             appointmentService.cancelAppointment(appt.getId(), advisorUser, "Advisor is no longer available: " + reason);
         }
 
+        log.info("Advisor {} deactivated by admin {} ({} appointments cancelled)", advisorId, admin.getId(), upcoming.size());
     }
 
     /** Partial update — only non-null fields on the request are applied. */

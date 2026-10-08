@@ -7,6 +7,7 @@ import com.example.finConsult.model.enums.*;
 import com.example.finConsult.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,7 @@ import java.util.Set;
  * Core appointment lifecycle: booking, advisor confirmation, cancellation, no-show
  * tracking (including the client strike/blacklist rules) and admin overrides.
  */
+@Slf4j
 @Service
 @AllArgsConstructor
 public class AppointmentService {
@@ -53,10 +55,12 @@ public class AppointmentService {
                 .orElseThrow(() -> new InformationNotFound("Slot not found"));
 
         if (slot.getStatus() != SlotStatus.AVAILABLE) {
+            log.warn("Booking rejected: slot unavailable (slot {})", slotId);
             throw new InvalidRequest("This slot is no longer available");
         }
 
         if (!slot.getAdvisor().isActive()) {
+            log.warn("Booking rejected: advisor inactive (advisor {})", slot.getAdvisor().getId());
             throw new InvalidRequest("This advisor is no longer available");
         }
 
@@ -66,6 +70,7 @@ public class AppointmentService {
         Specialty requested = serviceType.getRequiredSpecialty();
         Specialty actual = slot.getAdvisor().getSpecialty();
         if (requested != null && actual != requested && actual != Specialty.GENERAL) { // checks if the requested specialty matches the slot's advisor
+            log.warn("Booking rejected: wrong specialty (advisor {}, service {})", slot.getAdvisor().getId(), serviceId);
             throw new InvalidRequest("This advisor does not offer the selected service");
         }
 
@@ -75,6 +80,7 @@ public class AppointmentService {
             boolean ok = (needed == null) ? kycDocumentRepository.existsByUserAndStatus(client, KycStatus.APPROVED)
                     : kycDocumentRepository.existsByUserAndDocumentTypeAndStatus(client, needed, KycStatus.APPROVED);
             if (!ok) {
+                log.warn("Booking rejected: missing KYC (client {}, service {})", client.getId(), serviceId);
                 throw new InvalidRequest(needed == null ? "This service requires an approved KYC document" : "This service requires an approved " + needed + " document");
             }
         }
@@ -96,6 +102,7 @@ public class AppointmentService {
         auditLogService.log(client, AuditAction.APPOINTMENT_BOOKED, "Appointment", appointment.getId(),
                 "User " + client.getId() + " booked appointment " + appointment.getId());
 
+        log.info("Appointment {} booked by client {} with advisor {}", appointment.getId(), client.getId(), slot.getAdvisor().getId());
         return appointment;
     }
 
@@ -120,6 +127,7 @@ public class AppointmentService {
         auditLogService.log(appointment.getAdvisor().getUser(), AuditAction.APPOINTMENT_CONFIRMED,
                 "Appointment", appointmentId, "User " + appointment.getAdvisor().getUser().getId() + " confirmed appointment " + appointmentId);
 
+        log.info("Appointment {} confirmed by advisor {}", appointmentId, advisorId);
         return appointmentRepository.save(appointment);
     }
 
@@ -148,12 +156,14 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.CANCELLED);
         appointment.setCancelledAt(LocalDateTime.now());
         String reason;
+        boolean withinStrikeWindow = false;
 
         if (isAdvisor) {
             reason = notes != null ? notes : "Cancelled by Advisor";
         } else if (LocalDateTime.now().isBefore(appointment.getSlot().getStartTime().minusHours(CANCELLATION_STRIKE_WINDOW_HOURS))){
             reason = notes != null ? notes : "Cancelled by Client";
         } else {
+            withinStrikeWindow = true;
             reason = "Cancelled by Client less than the accepted cancellation window"
                     + (notes != null ? " — reason given: " + notes : "");
                 User client = appointment.getClient();
@@ -165,9 +175,12 @@ public class AppointmentService {
             }
             userRepository.save(client);
 
+            log.info("Strike added to client {} (now {} strikes)", client.getId(), client.getNoShowStrikes());
+
             if (newlyBlacklisted) {
                 auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
                         "User " + client.getId() + " blacklisted after reaching " + client.getNoShowStrikes() + " strikes");
+                log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), client.getNoShowStrikes());
             }
 
             notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
@@ -178,6 +191,9 @@ public class AppointmentService {
         appointment.setCancellationReason(reason);
         appointmentRepository.save(appointment);
         auditLogService.log(cancelledBy, AuditAction.APPOINTMENT_CANCELLED, "Appointment", appointmentId, reason);
+
+        log.info("Appointment {} cancelled by user {} ({}, within 24h strike window: {})",
+                appointmentId, cancelledBy.getId(), isAdvisor ? "advisor" : "client", withinStrikeWindow);
 
         AvailabilitySlot slot = appointment.getSlot();
         slot.setStatus(SlotStatus.AVAILABLE);
@@ -235,9 +251,13 @@ public class AppointmentService {
         auditLogService.log(appointment.getAdvisor().getUser(), AuditAction.APPOINTMENT_NO_SHOW,
                 "Appointment", appointmentId, "Marked no-show; client strikes: " + client.getNoShowStrikes());
 
+        log.info("Appointment {} marked no-show by advisor {}", appointmentId, advisorId);
+        log.info("Strike added to client {} (now {} strikes)", client.getId(), client.getNoShowStrikes());
+
         if (newlyBlacklisted) {
             auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
                     "User " + client.getId() + " blacklisted after reaching " + client.getNoShowStrikes() + " strikes");
+            log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), client.getNoShowStrikes());
         }
 
         notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
@@ -271,6 +291,8 @@ public class AppointmentService {
         auditLogService.log(admin, AuditAction.NO_SHOW_EXCUSED, "Appointment", appointmentId,
                 "No show excused: " + reason + "; client strikes: " + client.getNoShowStrikes());
 
+        log.info("No-show excused for appointment {} by admin {}", appointmentId, admin.getId());
+
         notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
                 "Your No Show was excused. Reason: " + reason, appointment);
 
@@ -301,6 +323,8 @@ public class AppointmentService {
         availabilitySlotRepository.save(slot);
 
         auditLogService.log(admin, AuditAction.APPOINTMENT_CANCELLED_BY_ADMIN, "Appointment", appointmentId, reason);
+
+        log.info("Appointment {} cancelled by admin {}", appointmentId, admin.getId());
 
         notificationService.create(appointment.getAdvisor().getUser(), NotificationType.APPOINTMENT_CANCELLED,
                 "The appointment with ID: " + appointmentId + " has been cancelled due to: " + reason, appointment);

@@ -26,6 +26,9 @@ import java.util.stream.Collectors;
 public class GlobalException { // adds meta data like http codes to the existing exceptions
 
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String message, HttpServletRequest request) {
+        if (status.is4xxClientError()) {
+            log.warn("{} {} -> {}: {}", request.getMethod(), request.getRequestURI(), status.value(), message);
+        }
         ErrorResponse body = new ErrorResponse(
                 LocalDateTime.now(),
                 status.value(),

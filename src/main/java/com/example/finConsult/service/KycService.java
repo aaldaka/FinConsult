@@ -13,6 +13,7 @@ import com.example.finConsult.model.response.KycDocResponse;
 import com.example.finConsult.repository.KycDocumentRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +27,7 @@ import java.util.List;
  * Handles KYC document submission and admin review (approve/reject), including
  * file validation and the duplicate-pending-submission guard.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class KycService {
@@ -58,10 +60,12 @@ public class KycService {
             throw new InvalidRequest("Document type is required");
         }
         if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            log.warn("KYC upload rejected: file too large for user {}", user.getId());
             throw new InvalidRequest("File is too large, max size 5 Mbs");
         }
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_TYPES.contains(contentType)) {
+            log.warn("KYC upload rejected: unsupported type for user {}", user.getId());
             throw new InvalidRequest("Only JPEG, PNG, DOCX or PDF files are allowed");
         }
 
@@ -83,6 +87,7 @@ public class KycService {
 
         auditLogService.log(user, AuditAction.KYC_SUBMITTED, "KycDocument", doc.getId(),
                 "Submitted " + type);
+        log.info("KYC document {} submitted by user {}", doc.getId(), user.getId());
         return mapper.toKyc(doc);
     }
 
@@ -110,6 +115,7 @@ public class KycService {
 
         auditLogService.log(admin, AuditAction.KYC_APPROVED, "KycDocument", id,
                 "Approved " + doc.getDocumentType() + " for " + doc.getUser().getEmail());
+        log.info("KYC document {} approved by admin {}", id, admin.getId());
         return mapper.toKyc(doc);
     }
 
@@ -131,6 +137,7 @@ public class KycService {
 
         auditLogService.log(admin, AuditAction.KYC_REJECTED, "KycDocument", id,
                 "Rejected " + doc.getDocumentType() + " for " + doc.getUser().getEmail());
+        log.info("KYC document {} rejected by admin {}", id, admin.getId());
         return mapper.toKyc(doc);
     }
 
