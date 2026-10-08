@@ -140,6 +140,47 @@ class AppointmentServiceTest {
     }
 
     @Test
+    void cancelLateWithEnoughNoticeReleasesSlot() {
+        User client = newUser(10);
+        Advisor advisor = newAdvisor(1, Specialty.GENERAL);
+        AvailabilitySlot slot = newSlot(advisor, LocalDateTime.now().plusHours(10));
+        Appointment appt = new Appointment();
+        appt.setId(1L);
+        appt.setClient(client);
+        appt.setAdvisor(advisor);
+        appt.setSlot(slot);
+        appt.setStatus(AppointmentStatus.CONFIRMED);
+
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(appt));
+
+        appointmentService.cancelAppointment(1L, client, null);
+
+        assertEquals(1, client.getNoShowStrikes());
+        assertEquals(SlotStatus.AVAILABLE, slot.getStatus());
+    }
+
+    @Test
+    void cancelTooCloseKeepsSlotBooked() {
+        User client = newUser(10);
+        Advisor advisor = newAdvisor(1, Specialty.GENERAL);
+        AvailabilitySlot slot = newSlot(advisor, LocalDateTime.now().plusHours(2));
+        slot.setStatus(SlotStatus.BOOKED);
+        Appointment appt = new Appointment();
+        appt.setId(1L);
+        appt.setClient(client);
+        appt.setAdvisor(advisor);
+        appt.setSlot(slot);
+        appt.setStatus(AppointmentStatus.CONFIRMED);
+
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(appt));
+
+        appointmentService.cancelAppointment(1L, client, null);
+
+        assertEquals(1, client.getNoShowStrikes());
+        assertEquals(SlotStatus.BOOKED, slot.getStatus());
+    }
+
+    @Test
     void cancelMoreThan24hNoStrike() {
         User client = newUser(10);
         Advisor advisor = newAdvisor(1, Specialty.GENERAL);

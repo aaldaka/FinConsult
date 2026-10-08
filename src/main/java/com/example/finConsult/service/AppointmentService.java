@@ -24,6 +24,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class AppointmentService {
     private static final int CANCELLATION_STRIKE_WINDOW_HOURS = 24;
+    private static final int LATE_CANCEL_RELEASE_CUTOFF_HOURS = 6;
     private static final Set<String> SORTABLE = Set.of("createdAt", "status", "slot.startTime");
 
     private final AppointmentRepository appointmentRepository;
@@ -134,7 +135,10 @@ public class AppointmentService {
     /**
      * Advisor cancellations never add a strike. Client cancellations only add one
      * (and blacklist at 3) when done less than 24h before the slot — too late for the
-     * advisor to re-fill it, so it's treated like a no-show.
+     * advisor to re-fill it, so it's treated like a no-show. The freed slot is reopened
+     * for booking unless the client cancelled inside the last {@value
+     * #LATE_CANCEL_RELEASE_CUTOFF_HOURS} hours before the slot, where there's realistically
+     * no time left for anyone else to book and show up.
      */
     @Transactional
     public void cancelAppointment(Long appointmentId, User cancelledBy, String additionalNotes) {
@@ -157,13 +161,18 @@ public class AppointmentService {
         appointment.setCancelledAt(LocalDateTime.now());
         String reason;
         boolean withinStrikeWindow = false;
+        boolean shouldRelease;
 
         if (isAdvisor) {
             reason = notes != null ? notes : "Cancelled by Advisor";
+            shouldRelease = true;
         } else if (LocalDateTime.now().isBefore(appointment.getSlot().getStartTime().minusHours(CANCELLATION_STRIKE_WINDOW_HOURS))){
             reason = notes != null ? notes : "Cancelled by Client";
+            shouldRelease = true;
         } else {
             withinStrikeWindow = true;
+            // still worth re-opening if there's enough notice left for someone else to realistically book and show up
+            shouldRelease = LocalDateTime.now().isBefore(appointment.getSlot().getStartTime().minusHours(LATE_CANCEL_RELEASE_CUTOFF_HOURS));
             reason = "Cancelled by Client less than the accepted cancellation window"
                     + (notes != null ? " — reason given: " + notes : "");
                 User client = appointment.getClient();
@@ -192,12 +201,14 @@ public class AppointmentService {
         appointmentRepository.save(appointment);
         auditLogService.log(cancelledBy, AuditAction.APPOINTMENT_CANCELLED, "Appointment", appointmentId, reason);
 
-        log.info("Appointment {} cancelled by user {} ({}, within 24h strike window: {})",
-                appointmentId, cancelledBy.getId(), isAdvisor ? "advisor" : "client", withinStrikeWindow);
+        log.info("Appointment {} cancelled by user {} ({}, within 24h strike window: {}, slot released: {})",
+                appointmentId, cancelledBy.getId(), isAdvisor ? "advisor" : "client", withinStrikeWindow, shouldRelease);
 
-        AvailabilitySlot slot = appointment.getSlot();
-        slot.setStatus(SlotStatus.AVAILABLE);
-        availabilitySlotRepository.save(slot);
+        if (shouldRelease) {
+            AvailabilitySlot slot = appointment.getSlot();
+            slot.setStatus(SlotStatus.AVAILABLE);
+            availabilitySlotRepository.save(slot);
+        }
 
         User whoToNotify = isClient ? appointment.getAdvisor().getUser() : appointment.getClient(); //notify the other party of the cancellation
         notificationService.create(whoToNotify, NotificationType.APPOINTMENT_CANCELLED,
