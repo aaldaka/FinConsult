@@ -1,9 +1,13 @@
-package com.example.finConsult.security;
+package com.example.finConsult.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Serves uploaded profile pictures as static resources (KYC documents are
+ * deliberately excluded and stay behind the authenticated download endpoint).
+ */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
     @Override //overriding to look and upload/serve pictures from the uploads directory
