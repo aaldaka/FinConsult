@@ -1,6 +1,6 @@
 package com.example.finConsult.controller;
 
-import com.example.finConsult.exception.InformationNotFound;
+import com.example.finConsult.service.AdvisorService;
 import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.Advisor;
 import com.example.finConsult.model.AvailabilitySlot;
@@ -9,7 +9,6 @@ import com.example.finConsult.model.request.CreateSlotRequest;
 import com.example.finConsult.model.response.ErrorResponse;
 import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.model.response.SlotResponse;
-import com.example.finConsult.repository.AdvisorRepository;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.AvailabilitySlotService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,6 +20,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -37,7 +37,7 @@ import java.util.List;
 @RequestMapping("/slots")
 @RequiredArgsConstructor
 public class AvailabilitySlotController { //posting the slot
-    private final AdvisorRepository advisorRepository;
+    private final AdvisorService advisorService;
     private final AvailabilitySlotService availabilitySlotService;
     private final ResponseMapper mapper;
 
@@ -50,14 +50,13 @@ public class AvailabilitySlotController { //posting the slot
             @ApiResponse(responseCode = "404", description = "Advisor profile not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping
-    @PreAuthorize("hasRole('ADVISOR') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADVISOR')") // admins have no advisor profile, so this was only ever a 404 for them
     public ResponseEntity<?> createSlot(@AuthenticationPrincipal UserDetails userDetails, @Valid @RequestBody CreateSlotRequest request) {
         User user = ((MyUserDetails) userDetails).getUser();
-        Advisor advisor = advisorRepository.findByUser(user)
-                .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
+        Advisor advisor = advisorService.getByUser(user);
 
         AvailabilitySlot createdSlot = availabilitySlotService.createSlot(advisor.getId(), request);
-        return ResponseEntity.ok(mapper.toSlot(createdSlot));
+        return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toSlot(createdSlot));
     }
 
     @Operation(summary = "Advisor deletes an unbooked slot")
@@ -73,8 +72,7 @@ public class AvailabilitySlotController { //posting the slot
     public ResponseEntity<?> deleteSlot(@AuthenticationPrincipal UserDetails userDetails,
                                          @Parameter(description = "ID of the slot to delete") @PathVariable Long id) {
         User user = ((MyUserDetails) userDetails).getUser();
-        Advisor advisor = advisorRepository.findByUser(user)
-                .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
+        Advisor advisor = advisorService.getByUser(user);
 
         availabilitySlotService.deleteSlot(advisor.getId(), id);
         return ResponseEntity.ok(new MessageResponse("Slot deleted successfully"));
@@ -103,8 +101,7 @@ public class AvailabilitySlotController { //posting the slot
     @PreAuthorize("hasRole('ADVISOR')")
     public ResponseEntity<?> getMySlots(@AuthenticationPrincipal UserDetails userDetails) {
         User user = ((MyUserDetails) userDetails).getUser();
-        Advisor advisor = advisorRepository.findByUser(user)
-                .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
+        Advisor advisor = advisorService.getByUser(user);
 
         List<AvailabilitySlot> slots = availabilitySlotService.getMySlots(advisor.getId());
         return ResponseEntity.ok(slots.stream().map(mapper::toSlot).toList());

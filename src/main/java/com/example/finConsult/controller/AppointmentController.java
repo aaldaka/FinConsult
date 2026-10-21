@@ -1,6 +1,6 @@
 package com.example.finConsult.controller;
 
-import com.example.finConsult.exception.InformationNotFound;
+import com.example.finConsult.service.AdvisorService;
 import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.Advisor;
 import com.example.finConsult.model.Appointment;
@@ -12,7 +12,6 @@ import com.example.finConsult.model.request.ReasonRequest;
 import com.example.finConsult.model.response.AppointmentResponse;
 import com.example.finConsult.model.response.ErrorResponse;
 import com.example.finConsult.model.response.MessageResponse;
-import com.example.finConsult.repository.AdvisorRepository;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.AppointmentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.SortDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,7 +44,7 @@ import org.springframework.web.bind.annotation.*;
 public class AppointmentController { // patch to partially update things instead of rewriting = more effort/code
 
     private final AppointmentService appointmentService;
-    private final AdvisorRepository advisorRepository;
+    private final AdvisorService advisorService;
     private final ResponseMapper mapper;
 
     @Operation(summary = "Book an available slot for a service type")
@@ -62,7 +62,7 @@ public class AppointmentController { // patch to partially update things instead
                                        @Valid @RequestBody BookAppointmentRequest bookAppointmentRequest) {
          User client = ((MyUserDetails) userDetails).getUser();
          Appointment appointment = appointmentService.bookSlot(client, slotId, bookAppointmentRequest.getServiceTypeId());
-        return ResponseEntity.ok(mapper.toAppointment(appointment));
+        return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toAppointment(appointment));
     }
 
     @Operation(summary = "Advisor confirms a pending appointment")
@@ -78,7 +78,7 @@ public class AppointmentController { // patch to partially update things instead
     public ResponseEntity<?> confirmAppointment(@AuthenticationPrincipal UserDetails userDetails,
                                                  @Parameter(description = "ID of the appointment to confirm") @PathVariable Long id) {
          User user = ((MyUserDetails) userDetails).getUser();
-         Advisor advisor = advisorRepository.findByUser(user).orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
+         Advisor advisor = advisorService.getByUser(user);
          Appointment appointment = appointmentService.confirmAppointment(advisor.getId(), id);
         return ResponseEntity.ok(mapper.toAppointment(appointment));
     }
@@ -112,8 +112,7 @@ public class AppointmentController { // patch to partially update things instead
         User user = ((MyUserDetails) userDetails).getUser();
 
         if (user.getRole() == UserRole.ADVISOR) {
-            Advisor advisor = advisorRepository.findByUser(user)
-                    .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
+            Advisor advisor = advisorService.getByUser(user);
             return ResponseEntity.ok(appointmentService.getAdvisorAppointments(advisor.getId(), status, sortBy)
                     .stream().map(mapper::toAppointment).toList());
         } else {
@@ -135,8 +134,7 @@ public class AppointmentController { // patch to partially update things instead
     public ResponseEntity<?> markNoShow(@AuthenticationPrincipal UserDetails userDetails,
                                          @Parameter(description = "ID of the appointment to mark") @PathVariable Long id) {
         User user = ((MyUserDetails) userDetails).getUser();
-        Advisor advisor = advisorRepository.findByUser(user)
-                .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
+        Advisor advisor = advisorService.getByUser(user);
         return ResponseEntity.ok(mapper.toAppointment(appointmentService.markNoShow(advisor.getId(), id)));
     }
 

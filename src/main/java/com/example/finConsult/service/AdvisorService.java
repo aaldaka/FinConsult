@@ -67,6 +67,11 @@ public class AdvisorService {
         return saved;
     }
 
+    public Advisor getByUser(User user) {
+        return advisorRepository.findByUser(user)
+                .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
+    }
+
     public Advisor getById(Long advisorId) {
         return advisorRepository.findById(advisorId)
                 .orElseThrow(() -> new InformationNotFound("Advisor not found"));

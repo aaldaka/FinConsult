@@ -1,9 +1,8 @@
 package com.example.finConsult.controller;
 
-import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.response.ErrorResponse;
 import com.example.finConsult.model.response.ServiceTypeResponse;
-import com.example.finConsult.repository.ServiceTypeRepository;
+import com.example.finConsult.service.ServiceTypeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -26,8 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ServiceTypeController {
 
-    private final ServiceTypeRepository serviceTypeRepository;
-    private final ResponseMapper mapper;
+    private final ServiceTypeService serviceTypeService;
 
     @Operation(summary = "List active service types")
     @ApiResponses({
@@ -36,6 +34,6 @@ public class ServiceTypeController {
     })
     @GetMapping
     public ResponseEntity<?> listActive() {
-        return ResponseEntity.ok(serviceTypeRepository.findByActiveTrue().stream().map(mapper::toServiceType).toList());
+        return ResponseEntity.ok(serviceTypeService.getActiveServices());
     }
 }
