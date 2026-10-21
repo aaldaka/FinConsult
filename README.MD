@@ -25,9 +25,16 @@ Booking a financial consultation normally means phone calls and back-and-forth s
 * Appointment statuses with enforced transitions: a booking starts as `PENDING`, the advisor moves it to `CONFIRMED`, and it can end as `CANCELLED` or `NO_SHOW` (a cancelled or no-show appointment cannot be cancelled again)
 * Cancelling less than 24 hours before the appointment adds a strike to the client; 3 strikes blacklists the client
 * Advisors can mark a no-show (only after the appointment has started plus 20 minutes); admins can excuse a no-show, which recalculates the strikes
+* Cancelling frees the slot again so someone else can take it, unless the appointment is less than 6 hours away (too late to be filled)
+* A scheduled job closes out `CONFIRMED` appointments as `COMPLETED` once their slot has finished
 
 **KYC**
 * Clients upload identity documents (JPEG, PNG, PDF or DOCX, max 5 MB); admins approve or reject with a reason, and can download the file
+
+**Becoming an advisor**
+* Clients can apply to become an advisor with their title, specialty, experience and one or more certificates (PDF, JPG or PNG)
+* Applying requires an active, non-blacklisted client account and an **approved national ID or passport**; only one application may be pending at a time and each client gets 3 attempts in total
+* Admins review the queue, download the certificates, and approve or reject with a reason; approving creates the advisor profile and switches the account's role (the applicant logs in again to pick it up)
 
 **Real-time and email**
 * In-app notifications for booking, confirmation, cancellation and no-show, pushed live over **Server-Sent Events**
@@ -159,7 +166,7 @@ To try protected endpoints: call `POST /auth/login`, copy the `token` from the r
 | PATCH | `/advisors/me` | Update own advisor details | Advisor |
 | GET | `/slots/advisor/{advisorId}` | List an advisor's available slots | Private |
 | GET | `/slots/mine` | List own slots | Advisor |
-| POST | `/slots` | Create an availability slot | Advisor, Admin |
+| POST | `/slots` | Create an availability slot | Advisor |
 | DELETE | `/slots/{id}` | Delete an unbooked slot | Advisor |
 | POST | `/appointments/book/{slotId}` | Book a slot for a service type | Client |
 | GET | `/appointments/mine` | List own appointments (`?status=`, `?sort=`) | Private |
@@ -173,6 +180,12 @@ To try protected endpoints: call `POST /auth/login`, copy the `token` from the r
 | PATCH | `/kyc/{id}/approve` | Approve a KYC document | Admin |
 | PATCH | `/kyc/{id}/reject` | Reject a KYC document with a reason | Admin |
 | GET | `/kyc/{id}/download` | Download a KYC document file | Admin |
+| POST | `/advisor-applications` | Apply to become an advisor (details + certificate files) | Client |
+| GET | `/advisor-applications/mine` | List own applications and attempts used | Client |
+| GET | `/advisor-applications` | List applications (`?status=`, `?page=`, `?size=`) | Admin |
+| PATCH | `/advisor-applications/{id}/approve` | Approve an application and promote the applicant | Admin |
+| PATCH | `/advisor-applications/{id}/reject` | Reject an application with a reason | Admin |
+| GET | `/advisor-applications/certificates/{certificateId}/download` | Download a certificate file | Admin |
 | GET | `/notifications/mine` | List own notifications | Private |
 | GET | `/notifications/mine/unread` | List own unread notifications | Private |
 | PATCH | `/notifications/{id}/read` | Mark a notification as read | Private |
