@@ -1,5 +1,6 @@
 package com.example.finConsult.model;
 
+import com.example.finConsult.model.enums.CertificateStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -28,4 +29,13 @@ public class ApplicationCertificate extends BaseEntity {
 
     @Column(name = "file_size")
     private long fileSize;
+
+    @Enumerated(EnumType.STRING)
+    private CertificateStatus status = CertificateStatus.PROCESSING;
+
+    @Column(name = "detected_type")
+    private String detectedType; // validate type (avoid rewriting in browser)
+
+    private String sha256; // hash files to avoid duplicates or another applicant uploading the same file
+
 }

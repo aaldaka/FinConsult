@@ -8,4 +8,5 @@ import java.util.List;
 
 public interface ApplicationCertificateRepository extends JpaRepository<ApplicationCertificate, Long> {
     List<ApplicationCertificate> findByApplication(AdvisorApplication application);
+    boolean existsBySha256AndIdNot(String sha256, Long id);
 }
