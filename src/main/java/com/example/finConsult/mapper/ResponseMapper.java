@@ -6,6 +6,8 @@ import com.example.finConsult.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 /**
  * Maps entities to their public response DTOs, keeping internal fields (and full
  * related entities) out of API responses.
@@ -64,6 +66,18 @@ public class ResponseMapper {
     public ServiceTypeResponse toServiceType(ServiceType s) {
         return new ServiceTypeResponse(s.getId(), s.getName(), s.getDescription(), s.getDurationMinutes(),
                 s.isRequiresKyc(), s.getRequiredDocumentType(), s.getRequiredSpecialty());
+    }
+
+    public CertificateResponse toCertificate(ApplicationCertificate c) {
+        return new CertificateResponse(c.getId(), c.getOriginalFileName(), c.getFileSize());
+    }
+
+    public AdvisorApplicationResponse toApplication(AdvisorApplication application, List<ApplicationCertificate> certificates) {
+        return new AdvisorApplicationResponse(application.getId(), application.getUser().getEmail(),
+                nameOf(application.getUser()), application.getTitle(), application.getSpecialty(),
+                application.getYearsOfExperience(), application.getStatus(), application.getRejectionReason(),
+                application.getCreatedAt(), application.getReviewedAt(),
+                certificates.stream().map(this::toCertificate).toList());
     }
 
     public AppointmentResponse toAppointment(Appointment a) {
