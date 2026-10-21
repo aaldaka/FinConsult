@@ -28,6 +28,7 @@ export type NotificationType =
   | 'APPOINTMENT_CANCELLED'
   | 'KYC_REVIEWED'
   | 'APPOINTMENT_NO_SHOW'
+  | 'ADVISOR_APPLICATION_REVIEWED'
 
 /** Shape of every error the API returns. */
 export interface ErrorResponse {
@@ -177,6 +178,38 @@ export interface KycDocResponse {
   rejectionReason: string | null
   submittedAt: string
   reviewedAt: string | null
+}
+
+export interface CertificateResponse {
+  id: number
+  originalFileName: string
+  fileSize: number
+}
+
+export interface AdvisorApplicationResponse {
+  id: number
+  applicantEmail: string
+  applicantName: string
+  title: string
+  specialty: Specialty
+  yearsOfExperience: number
+  status: KycStatus
+  rejectionReason: string | null
+  submittedAt: string
+  reviewedAt: string | null
+  certificates: CertificateResponse[]
+}
+
+export interface MyApplicationsResponse {
+  applications: AdvisorApplicationResponse[]
+  attemptsUsed: number
+  maxAttempts: number
+}
+
+export interface AdvisorApplicationRequest {
+  title: string
+  specialty?: Specialty
+  yearsOfExperience: number
 }
 
 export interface NotificationResponse {

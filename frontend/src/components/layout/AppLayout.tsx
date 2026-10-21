@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Building2, CalendarClock, LayoutDashboard, LogOut, ShieldCheck, User as UserIcon, Users } from 'lucide-react'
+import { Bell, BriefcaseBusiness, Building2, CalendarClock, LayoutDashboard, LogOut, ShieldCheck, User as UserIcon, Users } from 'lucide-react'
 import { useAuth } from '@/lib/AuthContext'
 import { listMyUnreadNotifications } from '@/api/notifications'
 import { cn } from '@/lib/cn'
@@ -17,6 +17,7 @@ const navByRole: Record<string, NavItem[]> = {
     { to: '/advisors', label: 'Advisors', icon: Users },
     { to: '/appointments', label: 'My Appointments', icon: CalendarClock },
     { to: '/kyc', label: 'KYC', icon: ShieldCheck },
+    { to: '/become-advisor', label: 'Become an Advisor', icon: BriefcaseBusiness },
   ],
   ADVISOR: [
     { to: '/slots', label: 'My Slots', icon: CalendarClock },
@@ -25,6 +26,7 @@ const navByRole: Record<string, NavItem[]> = {
   ADMIN: [
     { to: '/admin', label: 'Admin', icon: Building2 },
     { to: '/kyc-review', label: 'KYC Review', icon: ShieldCheck },
+    { to: '/advisor-applications', label: 'Applications', icon: BriefcaseBusiness },
   ],
 }
 

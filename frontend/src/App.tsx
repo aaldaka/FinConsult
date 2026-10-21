@@ -13,6 +13,8 @@ import { AppointmentsPage } from '@/pages/appointments/AppointmentsPage'
 import { SlotsPage } from '@/pages/slots/SlotsPage'
 import { KycPage } from '@/pages/kyc/KycPage'
 import { KycReviewPage } from '@/pages/kyc/KycReviewPage'
+import { ApplyPage } from '@/pages/advisorApplications/ApplyPage'
+import { ApplicationReviewPage } from '@/pages/advisorApplications/ApplicationReviewPage'
 import { AdminPage } from '@/pages/admin/AdminPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
@@ -36,6 +38,7 @@ function App() {
             <Route path="/advisors" element={<AdvisorsListPage />} />
             <Route path="/advisors/:id" element={<AdvisorDetailPage />} />
             <Route path="/kyc" element={<KycPage />} />
+            <Route path="/become-advisor" element={<ApplyPage />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={['CLIENT', 'ADVISOR']} />}>
@@ -49,6 +52,7 @@ function App() {
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/kyc-review" element={<KycReviewPage />} />
+            <Route path="/advisor-applications" element={<ApplicationReviewPage />} />
           </Route>
         </Route>
       </Route>
