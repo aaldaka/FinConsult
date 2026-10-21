@@ -28,7 +28,7 @@ public class Appointment extends BaseEntity {
     @JoinColumn(name = "service_type_id", nullable = false)
     private ServiceType serviceType;
 
-    @OneToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "slot_id", nullable = false)
     private AvailabilitySlot slot;
 
