@@ -43,6 +43,11 @@ public class GlobalException { // adds meta data like http codes to the existing
         return build(HttpStatus.CONFLICT, e.getMessage(), request);
     }
 
+    @ExceptionHandler(SlotUnavailable.class)
+    public ResponseEntity<ErrorResponse> handleSlotUnavailable(SlotUnavailable e, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, e.getMessage(), request);
+    }
+
     @ExceptionHandler(InformationIncorrect.class)
     public ResponseEntity<ErrorResponse> handleInformationIncorrect(InformationIncorrect ex, HttpServletRequest request) {
         return build(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);

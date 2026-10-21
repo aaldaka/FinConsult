@@ -2,6 +2,7 @@ package com.example.finConsult.service;
 
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
+import com.example.finConsult.exception.SlotUnavailable;
 import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.*;
 import com.example.finConsult.repository.*;
@@ -52,12 +53,12 @@ public class AppointmentService {
      */
     @Transactional
     public Appointment bookSlot(User client, Long slotId, Long serviceId) {
-        AvailabilitySlot slot = availabilitySlotRepository.findById(slotId)
+        AvailabilitySlot slot = availabilitySlotRepository.findByIdForUpdate(slotId)
                 .orElseThrow(() -> new InformationNotFound("Slot not found"));
 
         if (slot.getStatus() != SlotStatus.AVAILABLE) {
             log.warn("Booking rejected: slot unavailable (slot {})", slotId);
-            throw new InvalidRequest("This slot is no longer available");
+            throw new SlotUnavailable("This slot is no longer available");
         }
 
         if (!slot.getAdvisor().isActive()) {

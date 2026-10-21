@@ -1,6 +1,7 @@
 package com.example.finConsult.service;
 
 import com.example.finConsult.exception.InvalidRequest;
+import com.example.finConsult.exception.SlotUnavailable;
 import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.*;
 import com.example.finConsult.repository.*;
@@ -66,7 +67,7 @@ class AppointmentServiceTest {
         service.setRequiresKyc(false);
         User client = newUser(10);
 
-        when(availabilitySlotRepository.findById(1L)).thenReturn(Optional.of(slot));
+        when(availabilitySlotRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(slot));
         when(serviceTypeRepository.findById(5L)).thenReturn(Optional.of(service));
         when(appointmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -81,10 +82,10 @@ class AppointmentServiceTest {
         Advisor advisor = newAdvisor(1, Specialty.GENERAL);
         AvailabilitySlot slot = newSlot(advisor, LocalDateTime.now().plusDays(1));
         slot.setStatus(SlotStatus.BOOKED);
-        when(availabilitySlotRepository.findById(1L)).thenReturn(Optional.of(slot));
+        when(availabilitySlotRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(slot));
 
         User client = newUser(10);
-        assertThrows(InvalidRequest.class, () -> appointmentService.bookSlot(client, 1L, 5L));
+        assertThrows(SlotUnavailable.class, () -> appointmentService.bookSlot(client, 1L, 5L));
     }
 
     @Test
@@ -96,7 +97,7 @@ class AppointmentServiceTest {
         service.setRequiredSpecialty(Specialty.MORTGAGES);
         service.setRequiresKyc(false);
 
-        when(availabilitySlotRepository.findById(1L)).thenReturn(Optional.of(slot));
+        when(availabilitySlotRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(slot));
         when(serviceTypeRepository.findById(5L)).thenReturn(Optional.of(service));
 
         User client = newUser(10);
@@ -111,7 +112,7 @@ class AppointmentServiceTest {
         service.setId(5L);
         service.setRequiresKyc(true);
 
-        when(availabilitySlotRepository.findById(1L)).thenReturn(Optional.of(slot));
+        when(availabilitySlotRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(slot));
         when(serviceTypeRepository.findById(5L)).thenReturn(Optional.of(service));
         when(kycDocumentRepository.existsByUserAndStatus(any(), eq(KycStatus.APPROVED))).thenReturn(false);
 
