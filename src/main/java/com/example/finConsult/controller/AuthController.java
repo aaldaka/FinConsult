@@ -97,7 +97,7 @@ public class AuthController {
     public ResponseEntity<MessageResponse> changePassword(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody ChangePasswordRequest req){
-        String email = userDetails.getUsername(); // MyUserDetails.getUsername() returns user.getEmail()
+        String email = userDetails.getUsername();
         MessageResponse response = authService.changePassword(email, req);
         return ResponseEntity.ok(response);
     }

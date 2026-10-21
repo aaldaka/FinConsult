@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 
 @Getter
 @Setter
-@MappedSuperclass // following DRY concept, no duplication of
+@MappedSuperclass
 @EntityListeners(AuditingEntityListener.class) //shortcut to auditing
 public abstract class BaseEntity {
 

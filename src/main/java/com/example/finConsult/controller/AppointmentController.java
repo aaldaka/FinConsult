@@ -143,7 +143,7 @@ public class AppointmentController { // patch to partially update things instead
             @ApiResponse(responseCode = "200", description = "No-show excused", content = @Content(schema = @Schema(implementation = AppointmentResponse.class))),
             @ApiResponse(responseCode = "400", description = "A reason is required, or the appointment was not marked as a no-show", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Caller is not an admin", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+                        @ApiResponse(responseCode = "403", description = "Caller is not an admin", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "Appointment not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PatchMapping("/{id}/excuse")

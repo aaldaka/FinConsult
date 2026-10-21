@@ -93,7 +93,7 @@ public class AppointmentService {
         appointment.setSlot(slot);
         appointment.setServiceType(serviceType);
         appointment.setStatus(AppointmentStatus.PENDING);
-        appointment = appointmentRepository.save(appointment);   // <- new line
+        appointment = appointmentRepository.save(appointment);
         slot.setStatus(SlotStatus.BOOKED);
         availabilitySlotRepository.save(slot);
 
@@ -175,7 +175,7 @@ public class AppointmentService {
             // still worth re-opening if there's enough notice left for someone else to realistically book and show up
             shouldRelease = LocalDateTime.now().isBefore(appointment.getSlot().getStartTime().minusHours(LATE_CANCEL_RELEASE_CUTOFF_HOURS));
             reason = "Cancelled by Client less than the accepted cancellation window"
-                    + (notes != null ? " — reason given: " + notes : "");
+                    + (notes != null ? ", reason given: " + notes : "");
                 User client = appointment.getClient();
                 client.setNoShowStrikes(client.getNoShowStrikes() + 1);
 
@@ -243,7 +243,6 @@ public class AppointmentService {
             throw new InvalidRequest("Only confirmed appointments can be marked as no-show");
         }
 
-// optional (unmark for testing)
         if (appointment.getSlot().getStartTime().plusMinutes(20).isAfter(LocalDateTime.now())) {
             throw new InvalidRequest("Cannot mark No Show until 20 minutes has passed from the appointment start time");
         }
