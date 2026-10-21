@@ -3,10 +3,14 @@ package com.example.finConsult.model;
 import com.example.finConsult.model.enums.KycStatus;
 import com.example.finConsult.model.enums.Specialty;
 import jakarta.persistence.*;
+import lombok.*;
+
 import java.time.LocalDateTime;
 
 //advisor can be created or a client requests to be made an advisor
 @Entity
+@Getter
+@Setter
 @Table(name = "advisor_applications")
     public class AdvisorApplication extends BaseEntity {
 
