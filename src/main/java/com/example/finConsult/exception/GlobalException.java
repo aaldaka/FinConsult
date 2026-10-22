@@ -101,6 +101,11 @@ public class GlobalException { // adds meta data like http codes to the existing
         return build(HttpStatus.BAD_REQUEST, "Invalid value for " + ex.getName(), request);
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException e, HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, "This conflicts with an existing record", request);
+    }
+
     // Catch-all fallback for anything unexpected
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception e, HttpServletRequest request) {
