@@ -106,10 +106,17 @@ public class GlobalException { // adds meta data like http codes to the existing
         return build(HttpStatus.CONFLICT, "This conflicts with an existing record", request);
     }
 
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimistic(ObjectOptimisticLockingFailureException e, HttpServletRequest request) {
+        log.warn("Optimistic lock conflict on {}", request.getRequestURI());
+        return build(HttpStatus.CONFLICT, "This application was already reviewed", request);
+    }
+
     // Catch-all fallback for anything unexpected
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception e, HttpServletRequest request) {
         log.error("Unhandled exception on {} {}", request.getMethod(), request.getRequestURI(), e);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong. Please try again.", request);
     }
+
 }

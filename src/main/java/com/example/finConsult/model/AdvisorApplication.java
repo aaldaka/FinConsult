@@ -45,4 +45,7 @@ import java.time.LocalDateTime;
         @Column(name = "rejection_reason")
         private String rejectionReason;
 
+        @Version
+        private Long version; //optimistic locks
+
 }
