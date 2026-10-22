@@ -4,6 +4,7 @@ import com.example.finConsult.model.enums.KycStatus;
 import com.example.finConsult.model.enums.Specialty;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 
@@ -46,6 +47,7 @@ import java.time.LocalDateTime;
         private String rejectionReason;
 
         @Version
+        @ColumnDefault("0")
         private Long version; //optimistic locks
 
 }
