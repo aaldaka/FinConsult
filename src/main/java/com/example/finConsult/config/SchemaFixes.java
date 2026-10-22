@@ -46,5 +46,13 @@ public class SchemaFixes implements ApplicationRunner {
                 """);
 
         log.info("Schema fixes applied");
+
+        jdbcTemplate.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_appointments_one_active_per_slot
+                    ON appointments (slot_id)
+                    WHERE status IN ('PENDING', 'CONFIRMED')
+                """);
     }
+//only one appointment with PENDING/CONFIRMED can exist, the rest will get conflict 409
+
 }
