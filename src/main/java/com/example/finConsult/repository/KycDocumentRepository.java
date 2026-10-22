@@ -15,4 +15,5 @@ public interface KycDocumentRepository extends JpaRepository<KycDocument, Long> 
     Page<KycDocument> findByStatus(KycStatus status, Pageable pageable);
     boolean existsByUserAndDocumentTypeAndStatus(User u, DocumentType t, KycStatus status);
     Page<KycDocument> findByStatusAndDocumentType(KycStatus status, DocumentType documentType, Pageable pageable);
+    boolean existsBySha256AndIdNot(String sha256, Long id);
 }

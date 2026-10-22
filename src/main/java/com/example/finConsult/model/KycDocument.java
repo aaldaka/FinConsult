@@ -48,4 +48,12 @@ public class KycDocument extends BaseEntity {
 
     @Column(name = "rejection_reason")
     private String rejectionReason;
+
+    @Column(name = "detected_type")
+    private String detectedType;
+
+    private String sha256;
+
+    @Column(name = "flag_reason")
+    private String flagReason;
 }
