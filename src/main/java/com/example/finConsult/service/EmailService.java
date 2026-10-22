@@ -30,7 +30,7 @@ public class EmailService {
      *
      * @param type short purpose label for the log line (e.g. "verification", "password-reset") — never the subject or body
      */
-    @Async
+    @Async("mailExecutor")
     public void sendEmail(String to, String subject, String body, String type) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
