@@ -16,7 +16,10 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -30,6 +33,7 @@ class AppointmentServiceTest {
     @Mock AuditLogService auditLogService;
     @Mock KycDocumentRepository kycDocumentRepository;
     @Mock NotificationService notificationService;
+
 
     @InjectMocks AppointmentService appointmentService;
 
@@ -133,10 +137,11 @@ class AppointmentServiceTest {
         appt.setStatus(AppointmentStatus.CONFIRMED);
 
         when(appointmentRepository.findById(1L)).thenReturn(Optional.of(appt));
+        when(userRepository.addStrike(10L)).thenReturn(1);
 
         appointmentService.cancelAppointment(1L, client, null);
 
-        assertEquals(1, client.getNoShowStrikes());
+        verify(userRepository).addStrike(10L);
         assertEquals(AppointmentStatus.CANCELLED, appt.getStatus());
     }
 
@@ -153,10 +158,11 @@ class AppointmentServiceTest {
         appt.setStatus(AppointmentStatus.CONFIRMED);
 
         when(appointmentRepository.findById(1L)).thenReturn(Optional.of(appt));
+        when(userRepository.addStrike(10L)).thenReturn(1);
 
         appointmentService.cancelAppointment(1L, client, null);
 
-        assertEquals(1, client.getNoShowStrikes());
+        verify(userRepository).addStrike(10L);
         assertEquals(SlotStatus.AVAILABLE, slot.getStatus());
     }
 
@@ -174,10 +180,11 @@ class AppointmentServiceTest {
         appt.setStatus(AppointmentStatus.CONFIRMED);
 
         when(appointmentRepository.findById(1L)).thenReturn(Optional.of(appt));
+        when(userRepository.addStrike(10L)).thenReturn(1);
 
         appointmentService.cancelAppointment(1L, client, null);
 
-        assertEquals(1, client.getNoShowStrikes());
+        verify(userRepository).addStrike(10L);
         assertEquals(SlotStatus.BOOKED, slot.getStatus());
     }
 
@@ -197,14 +204,13 @@ class AppointmentServiceTest {
 
         appointmentService.cancelAppointment(1L, client, null);
 
-        assertEquals(0, client.getNoShowStrikes());
+        verify(userRepository, never()).addStrike(any());
         assertEquals(SlotStatus.AVAILABLE, slot.getStatus());
     }
 
     @Test
     void thirdStrikeBlacklistsClient() {
         User client = newUser(10);
-        client.setNoShowStrikes(2);
         Advisor advisor = newAdvisor(1, Specialty.GENERAL);
         AvailabilitySlot slot = newSlot(advisor, LocalDateTime.now().plusHours(1));
         Appointment appt = new Appointment();
@@ -215,11 +221,12 @@ class AppointmentServiceTest {
         appt.setStatus(AppointmentStatus.CONFIRMED);
 
         when(appointmentRepository.findById(1L)).thenReturn(Optional.of(appt));
+        when(userRepository.addStrike(10L)).thenReturn(3);
 
         appointmentService.cancelAppointment(1L, client, null);
 
-        assertEquals(3, client.getNoShowStrikes());
-        assertTrue(client.isBlacklisted());
+        verify(userRepository).addStrike(10L);
+        verify(auditLogService).log(eq(client), eq(AuditAction.CLIENT_BLACKLISTED), eq("User"), eq(10L), anyString());
     }
 
     @Test
@@ -239,10 +246,8 @@ class AppointmentServiceTest {
     }
 
     @Test
-    void excuseNoShowRemovesStrikeAndUnblacklists() {
+    void excuseNoShowRemovesStrike() {
         User client = newUser(10);
-        client.setNoShowStrikes(3);
-        client.setBlacklisted(true);
         Appointment appt = new Appointment();
         appt.setId(1L);
         appt.setClient(client);
@@ -250,11 +255,42 @@ class AppointmentServiceTest {
 
         when(appointmentRepository.findById(1L)).thenReturn(Optional.of(appt));
         when(appointmentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.removeStrike(10L)).thenReturn(2);
 
         User admin = newUser(99);
         appointmentService.excuseNoShow(1L, "mistake", admin);
 
-        assertEquals(2, client.getNoShowStrikes());
-        assertFalse(client.isBlacklisted());
+        verify(userRepository).removeStrike(10L);
+        assertTrue(appt.isExcused());
+    }
+
+    @Test
+    void excuseTwiceFails() {
+        Appointment appt = new Appointment();
+        appt.setId(1L);
+        appt.setClient(newUser(10));
+        appt.setStatus(AppointmentStatus.NO_SHOW);
+        appt.setExcused(true);
+
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(appt));
+
+        assertThrows(InvalidRequest.class, () -> appointmentService.excuseNoShow(1L, "mistake", newUser(99)));
+        verify(userRepository, never()).removeStrike(any());
+    }
+
+    @Test
+    void cancelCompletedFails() {
+        User client = newUser(10);
+        Advisor advisor = newAdvisor(1, Specialty.GENERAL);
+        Appointment appt = new Appointment();
+        appt.setId(1L);
+        appt.setClient(client);
+        appt.setAdvisor(advisor);
+        appt.setSlot(newSlot(advisor, LocalDateTime.now().minusDays(1)));
+        appt.setStatus(AppointmentStatus.COMPLETED);
+
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(appt));
+
+        assertThrows(InvalidRequest.class, () -> appointmentService.cancelAppointment(1L, client, null));
     }
 }
