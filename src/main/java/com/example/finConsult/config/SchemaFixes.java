@@ -52,7 +52,11 @@ public class SchemaFixes implements ApplicationRunner {
                     ON appointments (slot_id)
                     WHERE status IN ('PENDING', 'CONFIRMED')
                 """);
-    }
-//only one appointment with PENDING/CONFIRMED can exist, the rest will get conflict 409
 
+        jdbcTemplate.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_kyc_one_pending_per_user_and_type
+            ON kyc_documents (user_id, document_type)
+            WHERE status = 'PENDING'
+        """);
+    }
 }
