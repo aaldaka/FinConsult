@@ -111,7 +111,7 @@ public class GlobalException { // adds meta data like http codes to the existing
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> handleOptimistic(ObjectOptimisticLockingFailureException e, HttpServletRequest request) {
         log.warn("Optimistic lock conflict on {}", request.getRequestURI());
-        return build(HttpStatus.CONFLICT, "This application was already reviewed", request);
+        return build(HttpStatus.CONFLICT, "This record was changed by someone else. Please refresh and try again", request);
     }
 
     // Catch-all fallback for anything unexpected

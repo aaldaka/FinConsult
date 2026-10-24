@@ -3,6 +3,7 @@ package com.example.finConsult.model;
 import com.example.finConsult.model.enums.AppointmentStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.LocalDateTime;
 
@@ -48,4 +49,8 @@ public class Appointment extends BaseEntity {
 
     @Column
     private String excuseReason;
+
+    @Version
+    @ColumnDefault("0")
+    private Long version; // advisor confirms while the client cancels
 }

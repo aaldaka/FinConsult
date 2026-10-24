@@ -49,5 +49,4 @@ import java.time.LocalDateTime;
         @Version
         @ColumnDefault("0")
         private Long version; //optimistic locks
-
 }

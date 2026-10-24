@@ -4,6 +4,8 @@ import com.example.finConsult.model.enums.DocumentType;
 import com.example.finConsult.model.enums.KycStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -56,4 +58,8 @@ public class KycDocument extends BaseEntity {
 
     @Column(name = "flag_reason")
     private String flagReason;
+
+    @Version
+    @ColumnDefault("0")
+    private Long version; // two admins approve/reject the same doc
 }
