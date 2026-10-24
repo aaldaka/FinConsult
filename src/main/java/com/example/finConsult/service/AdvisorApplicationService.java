@@ -17,9 +17,12 @@ import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -42,6 +45,7 @@ public class AdvisorApplicationService {
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
     private final ResponseMapper mapper;
+    private final DocumentProcessor certificateProcessor;
 
     @Transactional
     public AdvisorApplicationResponse submit(User applicant, AdvisorApplicationRequest request, List<MultipartFile> certificates) {
@@ -94,6 +98,7 @@ public class AdvisorApplicationService {
         application.setYearsOfExperience(request.getYearsOfExperience());
         application.setStatus(KycStatus.PENDING);
         application = applicationRepository.save(application);
+        List<Long> certificateIds = new ArrayList<>();
 
         for (MultipartFile file : certificates) {
             String path = fileStorageService.store(file, "advisor_applications");
@@ -104,7 +109,17 @@ public class AdvisorApplicationService {
             certificate.setContentType(file.getContentType());
             certificate.setFileSize(file.getSize());
             certificateRepository.save(certificate);
+            certificateIds.add(certificate.getId());
         }
+
+        Long applicationId = application.getId();
+        Long applicantId = applicant.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                certificateProcessor.processAll(applicationId, applicantId, certificateIds);
+            }
+        });
 
         auditLogService.log(applicant, AuditAction.ADVISOR_APPLICATION_SUBMITTED, "AdvisorApplication",
                 application.getId(), "Applied to become an advisor");

@@ -18,9 +18,13 @@ import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -40,6 +44,7 @@ public class KycService {
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
     private final ResponseMapper mapper;
+    private final DocumentProcessor documentProcessor;
 
     /** @return the document, only if it's still PENDING */
     private KycDocument findPending(Long id) {
@@ -50,9 +55,42 @@ public class KycService {
         return doc;
     }
 
-    /** Blocks a second submission of the same type while an earlier one is still pending, to stop spam re-submissions. */
     @Transactional
     public KycDocResponse submit(User user, MultipartFile file, DocumentType type) {
+        KycDocument doc = saveDocument(user, file, type);
+        checkAfterCommit(user.getId(), List.of(doc.getId()));
+        return mapper.toKyc(doc);
+    }
+
+    @Transactional
+    public List<KycDocResponse> submitAll(User user, List<MultipartFile> files, List<DocumentType> types) {
+        if (files == null || files.isEmpty() || types == null || files.size() != types.size()) {
+            throw new InvalidRequest("Each file needs a document type");
+        }
+        if (new HashSet<>(types).size() != types.size()) {
+            throw new InvalidRequest("Only one file per document type");
+        }
+
+        List<KycDocument> docs = new ArrayList<>();
+        for (int i = 0; i < files.size(); i++) {
+            docs.add(saveDocument(user, files.get(i), types.get(i)));
+        }
+
+        checkAfterCommit(user.getId(), docs.stream().map(KycDocument::getId).toList());
+        return docs.stream().map(mapper::toKyc).toList();
+    }
+
+    // runs the background checks only once the documents are committed
+    private void checkAfterCommit(Long userId, List<Long> documentIds) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                documentProcessor.processKycAll(userId, documentIds);
+            }
+        });
+    }
+
+    private KycDocument saveDocument(User user, MultipartFile file, DocumentType type) {
         if (file == null || file.isEmpty()) {
             throw new InvalidRequest("A file is required");
         }
@@ -73,7 +111,6 @@ public class KycService {
         if (kycDocumentRepository.existsByUserAndDocumentTypeAndStatus(user, type, KycStatus.PENDING)) {
             throw new InvalidRequest("You already have a pending " + type + " document");
         }
-        //kyc arent accessible
         String path = fileStorageService.store(file, "kyc_documents");
 
         KycDocument doc = new KycDocument();
@@ -88,7 +125,7 @@ public class KycService {
         auditLogService.log(user, AuditAction.KYC_SUBMITTED, "KycDocument", doc.getId(),
                 "Submitted " + type);
         log.info("KYC document {} submitted by user {}", doc.getId(), user.getId());
-        return mapper.toKyc(doc);
+        return doc;
     }
 
     public List<KycDocResponse> getMyDocuments(User user) {

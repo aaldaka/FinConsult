@@ -141,4 +141,12 @@ public class KycController {
                         "attachment; filename=\"" + doc.getOriginalFileName() + "\"")
                 .body(resource);
     }
+
+    @PostMapping("/batch")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<List<KycDocResponse>> submitAll(@RequestPart("files") List<MultipartFile> files, @RequestParam List<DocumentType> documentTypes, @AuthenticationPrincipal UserDetails userDetails) {
+        User user = ((MyUserDetails) userDetails).getUser();
+        return ResponseEntity.status(HttpStatus.CREATED).body(kycService.submitAll(user, files, documentTypes));
+    }
+
 }

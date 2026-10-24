@@ -18,11 +18,13 @@ export async function listDocumentsByStatus(query: KycQuery = {}) {
   return data
 }
 
-export async function submitDocument(file: File, documentType: DocumentType) {
+export async function submitDocuments(items: { file: File; documentType: DocumentType }[]) {
   const form = new FormData()
-  form.append('file', file)
-  const { data } = await api.post<KycDocResponse>('/kyc', form, {
-    params: { documentType },
+  items.forEach((item) => {
+    form.append('files', item.file)
+    form.append('documentTypes', item.documentType)
+  })
+  const { data } = await api.post<KycDocResponse[]>('/kyc/batch', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return data
