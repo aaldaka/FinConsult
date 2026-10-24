@@ -1,6 +1,7 @@
 package com.example.finConsult.service;
 
 import com.example.finConsult.exception.InformationNotFound;
+import com.example.finConsult.model.AdvisorApplication;
 import com.example.finConsult.model.ApplicationCertificate;
 import com.example.finConsult.model.KycDocument;
 import com.example.finConsult.model.enums.CertificateStatus;
@@ -49,7 +50,11 @@ public class DocumentProcessor {
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
                 .thenRun(() -> streamService.push(userId,
-                        Map.of("type", "KYC_CHECKED", "documentIds", documentIds)));
+                        Map.of("type", "KYC_CHECKED", "documentIds", documentIds)))
+                        .exceptionally(e -> {
+                    log.error("Document checks failed", e);
+                    return null;
+                });
     }
 
     private void checkKyc(Long documentId) {
@@ -87,7 +92,11 @@ public class DocumentProcessor {
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
                 .thenRun(() -> streamService.push(applicantId,
-                        Map.of("type", "CERTIFICATES_CHECKED", "applicationId", applicationId)));
+                        Map.of("type", "CERTIFICATES_CHECKED", "applicationId", applicationId)))
+                        .exceptionally(e -> {
+            log.error("Document checks failed", e);
+            return null;
+        });
     }
 
     // runs on a doc-worker thread
@@ -103,10 +112,12 @@ public class DocumentProcessor {
             cert.setSha256(info.hash());
             certificateRepository.save(cert); // save hash and check immedietly to detect any duplicates
 
-            boolean duplicate = certificateRepository.existsBySha256AndIdNot(info.hash(), cert.getId());
+            AdvisorApplication application = cert.getApplication();
+            boolean duplicate = certificateRepository.existsBySha256AndApplication_UserNot(info.hash(), application.getUser()) || certificateRepository.existsBySha256AndApplicationAndIdNot(info.hash(), application, cert.getId());
+
             cert.setStatus(info.type() != null && !duplicate ? CertificateStatus.VALID : CertificateStatus.FLAGGED);
-        } catch (IOException e) {
-            log.warn("Could not read certificate {}: {}", certificateId, e.getMessage());
+        } catch (IOException | RuntimeException e) {
+            log.warn("Could not check certificate {}: {}", certificateId, e.getMessage());
             cert.setStatus(CertificateStatus.FLAGGED);
         }
 
@@ -136,7 +147,7 @@ public class DocumentProcessor {
     private boolean startsWith(byte[] bytes, int... signature) {
         if (bytes.length < signature.length) return false;
         for (int i = 0; i < signature.length; i++) {
-            if ((bytes[i] & 0xFFcl) != signature[i]) return false;
+            if ((bytes[i] & 0xFF) != signature[i]) return false;
         }
         return true;
     }
