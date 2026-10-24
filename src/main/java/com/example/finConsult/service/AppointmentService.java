@@ -154,8 +154,8 @@ public class AppointmentService {
             throw new InvalidRequest("You are not authorized to cancel this appointment");
         }
 
-        if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW)){
-            throw new InvalidRequest("Cannot cancel an appointment that is marked as Cancelled or No Show");
+        if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW) || appointment.getStatus().equals(AppointmentStatus.COMPLETED)){
+            throw new InvalidRequest("Only pending or confirmed appointments can be cancelled");
         }
 
         appointment.setStatus(AppointmentStatus.CANCELLED);
@@ -176,26 +176,21 @@ public class AppointmentService {
             shouldRelease = LocalDateTime.now().isBefore(appointment.getSlot().getStartTime().minusHours(LATE_CANCEL_RELEASE_CUTOFF_HOURS));
             reason = "Cancelled by Client less than the accepted cancellation window"
                     + (notes != null ? ", reason given: " + notes : "");
-                User client = appointment.getClient();
-                client.setNoShowStrikes(client.getNoShowStrikes() + 1);
+            User client = appointment.getClient();
+            int strikes = userRepository.addStrike(client.getId());
+            boolean newlyBlacklisted = strikes == 3;   // just crossed the limit
 
-            boolean newlyBlacklisted = !client.isBlacklisted() && client.getNoShowStrikes() >= 3;
-            if (client.getNoShowStrikes() >= 3) {
-                client.setBlacklisted(true);
-            }
-            userRepository.save(client);
-
-            log.info("Strike added to client {} (now {} strikes)", client.getId(), client.getNoShowStrikes());
+            log.info("Strike added to client {} (now {} strikes)", client.getId(), strikes);
 
             if (newlyBlacklisted) {
                 auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
-                        "User " + client.getId() + " blacklisted after reaching " + client.getNoShowStrikes() + " strikes");
-                log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), client.getNoShowStrikes());
+                        "User " + client.getId() + " blacklisted after reaching " + strikes + " strikes");
+                log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), strikes);
             }
 
             notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
                     "You cancelled your: " + appointmentId + " appointment less than the acceptable 24 Hour window. Your strikes are: "
-                            + client.getNoShowStrikes() + " /3", appointment);
+                            + strikes + " /3", appointment);
         }
 
         appointment.setCancellationReason(reason);
@@ -251,29 +246,23 @@ public class AppointmentService {
         appointmentRepository.save(appointment);
 
         User client = appointment.getClient();
-        client.setNoShowStrikes(client.getNoShowStrikes()+ 1);
+        int strikes = userRepository.addStrike(client.getId());
+        boolean newlyBlacklisted = strikes == 3;
 
-        boolean newlyBlacklisted = !client.isBlacklisted() && client.getNoShowStrikes() >= 3;
-        if (client.getNoShowStrikes() >= 3) {
-            client.setBlacklisted(true);
-        }
-
-        userRepository.save(client);
         auditLogService.log(appointment.getAdvisor().getUser(), AuditAction.APPOINTMENT_NO_SHOW,
-                "Appointment", appointmentId, "Marked no-show; client strikes: " + client.getNoShowStrikes());
+                "Appointment", appointmentId, "Marked no-show; client strikes: " + strikes);
 
         log.info("Appointment {} marked no-show by advisor {}", appointmentId, advisorId);
-        log.info("Strike added to client {} (now {} strikes)", client.getId(), client.getNoShowStrikes());
-
+        log.info("Strike added to client {} (now {} strikes)", client.getId(), strikes);
         if (newlyBlacklisted) {
             auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
-                    "User " + client.getId() + " blacklisted after reaching " + client.getNoShowStrikes() + " strikes");
-            log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), client.getNoShowStrikes());
+                    "User " + client.getId() + " blacklisted after reaching " + strikes + " strikes");
+            log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), strikes);
         }
 
         notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
                 "You were marked as No Show for your: " + appointmentId + " appointment. Your strikes are: "
-                        + client.getNoShowStrikes() + " /3", appointment);
+                        + strikes + " /3", appointment);
 
         return appointment;
     }
@@ -292,15 +281,17 @@ public class AppointmentService {
             throw new InvalidRequest("Appointment was not marked as a No-Show");
         }
 
+        if (appointment.isExcused()) {
+            throw new InvalidRequest("This no-show was already excused");
+        }
+
         User client = appointment.getClient();
         appointment.setExcused(true);
         appointment.setExcuseReason(reason);
-        client.setNoShowStrikes(client.getNoShowStrikes() > 0 ? client.getNoShowStrikes() - 1 : 0 );
-        client.setBlacklisted(client.getNoShowStrikes() >= 3);
+        int strikes = userRepository.removeStrike(client.getId());
 
-        userRepository.save(client);
         auditLogService.log(admin, AuditAction.NO_SHOW_EXCUSED, "Appointment", appointmentId,
-                "No show excused: " + reason + "; client strikes: " + client.getNoShowStrikes());
+                "No show excused: " + reason + "; client strikes: " + strikes);
 
         log.info("No-show excused for appointment {} by admin {}", appointmentId, admin.getId());
 
@@ -316,7 +307,7 @@ public class AppointmentService {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new InformationNotFound("Appointment not found"));
 
-        if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW)) {
+        if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW) || appointment.getStatus().equals(AppointmentStatus.COMPLETED)) {
             throw new InvalidRequest("Cannot cancel an appointment that is marked as Cancelled or No Show");
         }
 
