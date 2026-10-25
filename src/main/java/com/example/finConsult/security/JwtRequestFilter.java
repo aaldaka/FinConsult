@@ -1,5 +1,7 @@
 package com.example.finConsult.security;
 
+import com.example.finConsult.model.User;
+import com.example.finConsult.model.enums.UserStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -47,13 +49,18 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             String jwt = parseJwt(request);
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
                 String username = jwtUtils.getUserNameFromJwtToken(jwt);
+                MyUserDetails userDetails = (MyUserDetails) this.myUserDetailsService.loadUserByUsername(username);
+                User user = userDetails.getUser();
 
-                UserDetails userDetails = this.myUserDetailsService.loadUserByUsername(username);
-
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities()); //u deal with auth manager and stuff, reveiew
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                if (user.isBlacklisted() || user.getUserStatus() != UserStatus.ACTIVE) {
+                    log.warn("Blocked request from user {} (blacklisted: {}, status: {})",
+                            user.getId(), user.isBlacklisted(), user.getUserStatus());
+                } else {
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             }
         } catch (Exception e) {
             log.error("Cannot set user authentication", e);
