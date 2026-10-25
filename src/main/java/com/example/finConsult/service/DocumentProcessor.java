@@ -4,9 +4,13 @@ import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.model.AdvisorApplication;
 import com.example.finConsult.model.ApplicationCertificate;
 import com.example.finConsult.model.KycDocument;
+import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.CertificateStatus;
+import com.example.finConsult.model.enums.NotificationType;
+import com.example.finConsult.model.enums.UserRole;
 import com.example.finConsult.repository.ApplicationCertificateRepository;
 import com.example.finConsult.repository.KycDocumentRepository;
+import com.example.finConsult.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -31,14 +35,18 @@ public class DocumentProcessor {
     private final FileStorageService fileStorageService;
     private final NotificationStreamService streamService;
     private final Executor executor;
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public DocumentProcessor(ApplicationCertificateRepository certificateRepository, KycDocumentRepository kycDocumentRepository, FileStorageService fileStorageService, NotificationStreamService streamService,
-                             @Qualifier("docExecutor") Executor executor) {
+                             @Qualifier("docExecutor") Executor executor, UserRepository userRepository, NotificationService notificationService) {
         this.certificateRepository = certificateRepository;
         this.kycDocumentRepository = kycDocumentRepository;
         this.fileStorageService = fileStorageService;
         this.streamService = streamService;
         this.executor = executor;
+        this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     public CompletableFuture<Void> processKycAll(Long userId, List<Long> documentIds) {
@@ -49,9 +57,19 @@ public class DocumentProcessor {
                 .toList();
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenRun(() -> streamService.push(userId,
-                        Map.of("type", "KYC_CHECKED", "documentIds", documentIds)))
-                        .exceptionally(e -> {
+                .thenRun(() -> {
+                    streamService.push(userId,
+                            Map.of("type", "KYC_CHECKED", "documentIds", documentIds));
+
+                    long flagged = kycDocumentRepository.findAllById(documentIds).stream()
+                            .filter(d -> d.getFlagReason() != null)
+                            .count();
+                    if (flagged > 0) {
+                        notifyAdmins(flagged + " KYC document(s) from user " + userId
+                                + " were flagged. A review is needed");
+                    }
+                })
+                .exceptionally(e -> {
                     log.error("Document checks failed", e);
                     return null;
                 });
@@ -73,7 +91,7 @@ public class DocumentProcessor {
             } else if (kycDocumentRepository.existsBySha256AndUserNot(info.hash(), doc.getUser())) {
                 doc.setFlagReason("Same file was uploaded by another account");
             }
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             log.warn("Could not read KYC document {}: {}", documentId, e.getMessage());
             doc.setFlagReason("Could not read the file");
         }
@@ -91,9 +109,19 @@ public class DocumentProcessor {
                 .toList();
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                .thenRun(() -> streamService.push(applicantId,
-                        Map.of("type", "CERTIFICATES_CHECKED", "applicationId", applicationId)))
-                        .exceptionally(e -> {
+                .thenRun(() -> {
+                    streamService.push(applicantId,
+                            Map.of("type", "CERTIFICATES_CHECKED", "applicationId", applicationId));
+
+                    long flagged = certificateRepository.findAllById(certificateIds).stream()
+                            .filter(c -> c.getStatus() == CertificateStatus.FLAGGED)
+                            .count();
+                    if (flagged > 0) {
+                        notifyAdmins(flagged + " certificate(s) in advisor application " + applicationId
+                                + " were flagged. A review is required");
+                    }
+                })
+                .exceptionally(e -> {
             log.error("Document checks failed", e);
             return null;
         });
@@ -157,6 +185,13 @@ public class DocumentProcessor {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is not available", e);
+        }
+    }
+
+    // notify admins of a batch of flagged ones
+    private void notifyAdmins(String message) {
+        for (User admin : userRepository.findByRole(UserRole.ADMIN)) {
+            notificationService.create(admin, NotificationType.DOCUMENT_FLAGGED, message, null);
         }
     }
 }
