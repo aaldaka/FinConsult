@@ -46,8 +46,7 @@ class AvailabilitySlotServiceTest {
     @Test
     void createSlotInPastFails() {
         Advisor advisor = newAdvisor(1);
-        when(advisorRepository.findById(1L)).thenReturn(Optional.of(advisor));
-
+        when(advisorRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(advisor));
         CreateSlotRequest req = new CreateSlotRequest();
         req.setStartingTime(LocalDateTime.now().minusDays(1));
         req.setFinishingTime(LocalDateTime.now().plusDays(1));
@@ -59,7 +58,7 @@ class AvailabilitySlotServiceTest {
     void createSlotOverlapFails() {
         Advisor advisor = newAdvisor(1);
         AvailabilitySlot existing = newSlot(advisor, LocalDateTime.now().plusDays(1));
-        when(advisorRepository.findById(1L)).thenReturn(Optional.of(advisor));
+        when(advisorRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(advisor));
         when(availabilitySlotRepository.findByAdvisor(advisor)).thenReturn(List.of(existing));
 
         CreateSlotRequest req = new CreateSlotRequest();

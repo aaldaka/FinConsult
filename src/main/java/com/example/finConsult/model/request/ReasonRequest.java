@@ -7,6 +7,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class ReasonRequest {
-    @Size(max = 500)
+    @Size(max = 255)
     private String reason;
 }

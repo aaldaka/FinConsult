@@ -308,7 +308,7 @@ public class AppointmentService {
                 .orElseThrow(() -> new InformationNotFound("Appointment not found"));
 
         if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW) || appointment.getStatus().equals(AppointmentStatus.COMPLETED)) {
-            throw new InvalidRequest("Cannot cancel an appointment that is marked as Cancelled or No Show");
+            throw new InvalidRequest("Only pending or confirmed appointments can be cancelled");
         }
 
         if (reason == null || reason.isBlank()) {

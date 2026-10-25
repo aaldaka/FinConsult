@@ -8,13 +8,12 @@ import com.example.finConsult.model.enums.SlotStatus;
 import com.example.finConsult.model.request.CreateSlotRequest;
 import com.example.finConsult.repository.AdvisorRepository;
 import com.example.finConsult.repository.AvailabilitySlotRepository;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Manages advisor-posted availability slots: creation (with overlap checking),
@@ -29,8 +28,9 @@ public class AvailabilitySlotService { // advisors post their new open slots
     private final AdvisorRepository advisorRepository;
 
     /** Rejects slots in the past, backwards ranges, and anything overlapping the advisor's existing slots. */
+    @Transactional
     public AvailabilitySlot createSlot(Long advisorId, CreateSlotRequest request) {
-        Advisor advisor = advisorRepository.findById(advisorId)
+        Advisor advisor = advisorRepository.findByIdForUpdate(advisorId)
                 .orElseThrow(() -> new InformationNotFound("Advisor: " + advisorId + " does not exist."));
 
         if (request.getStartingTime().isBefore(LocalDateTime.now())){ //invalid time
@@ -61,8 +61,9 @@ public class AvailabilitySlotService { // advisors post their new open slots
     }
 
     /** Only the owning advisor may delete a slot, and only while it's unbooked. */
+    @Transactional
     public void deleteSlot(Long advisorId, Long slotId) {
-        AvailabilitySlot slot = availabilitySlotRepository.findById(slotId)
+        AvailabilitySlot slot = availabilitySlotRepository.findByIdForUpdate(slotId)
                 .orElseThrow(() -> new InformationNotFound("Slot not found"));
 
         if (!slot.getAdvisor().getId().equals(advisorId)) {
