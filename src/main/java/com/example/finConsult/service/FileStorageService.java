@@ -61,7 +61,7 @@ public class FileStorageService { //main filtere for uploads (Niche profile and 
 
     /** Resolves a stored path back to a file, rejecting anything outside the upload directory. */
     public Resource load(String storedPath) {
-        if (storedPath.isEmpty() || storedPath == null){
+        if (storedPath == null || storedPath.isEmpty()) {
             throw new InformationNotFound("File Path not found");
         }
 

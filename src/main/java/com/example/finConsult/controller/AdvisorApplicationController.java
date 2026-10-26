@@ -75,10 +75,7 @@ public class AdvisorApplicationController {
 
     @PatchMapping("/{id}/reject")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AdvisorApplicationResponse> reject(
-            @PathVariable Long id,
-            @RequestBody ReasonRequest request, @AuthenticationPrincipal UserDetails userDetails) {
-        User admin = ((MyUserDetails) userDetails).getUser();
+    public ResponseEntity<AdvisorApplicationResponse> reject(@PathVariable Long id, @Valid @RequestBody ReasonRequest request, @AuthenticationPrincipal UserDetails userDetails) {        User admin = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.ok(applicationService.reject(id, request.getReason(), admin));
     }
 

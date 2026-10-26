@@ -152,6 +152,5 @@ public class AppointmentController { // patch to partially update things instead
                                            @Parameter(description = "ID of the no-show appointment to excuse") @PathVariable Long id,
                                            @Valid @RequestBody ReasonRequest request) {
         User admin = ((MyUserDetails) userDetails).getUser();
-        return ResponseEntity.ok(appointmentService.excuseNoShow(id, request.getReason(), admin));
-    }
+        return ResponseEntity.ok(mapper.toAppointment(appointmentService.excuseNoShow(id, request.getReason(), admin)));    }
 }

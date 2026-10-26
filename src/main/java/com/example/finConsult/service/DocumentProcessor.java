@@ -90,6 +90,7 @@ public class DocumentProcessor {
             FileInfo info = inspect(doc.getFilePath());
             doc.setDetectedType(info.type());
             doc.setSha256(info.hash());
+            doc = saveCheckResult(documentId, doc);   // hash saved first so a parallel check can see it
 
             if (info.type() == null) {
                 doc.setFlagReason("File content is not a real PDF, JPG, PNG or DOCX");
@@ -103,7 +104,7 @@ public class DocumentProcessor {
             doc.setFlagReason("Could not read the file");
         }
 
-        saveCheckResult(documentId, doc);
+        doc = saveCheckResult(documentId, doc);
         log.info("KYC document {} checked, flag: {}", documentId, doc.getFlagReason());
     }
 
@@ -149,7 +150,7 @@ public class DocumentProcessor {
 
             AdvisorApplication application = cert.getApplication();
             boolean duplicate = certificateRepository.existsBySha256AndApplication_UserNot(info.hash(), application.getUser()) || certificateRepository.existsBySha256AndApplicationAndIdNot(info.hash(), application, cert.getId());
-            boolean malware = info.type() != null && virusTotalService.lookup(info.hash()).status() == ScanResult.Status.MALICIOUS;
+            boolean malware = info.type() != null && !duplicate && virusTotalService.lookup(info.hash()).status() == ScanResult.Status.MALICIOUS;
             cert.setStatus(info.type() != null && !duplicate && !malware ? CertificateStatus.VALID : CertificateStatus.FLAGGED);
         } catch (IOException | RuntimeException e) {
             log.warn("Could not check certificate {}: {}", certificateId, e.getMessage());
@@ -202,11 +203,10 @@ public class DocumentProcessor {
         }
     }
 
-    private void saveCheckResult(Long documentId, KycDocument doc) {
+    private KycDocument saveCheckResult(Long documentId, KycDocument doc) {
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
-                kycDocumentRepository.save(doc);
-                return;
+                return kycDocumentRepository.save(doc);
             } catch (ObjectOptimisticLockingFailureException e) {
                 log.warn("KYC document {} changed while being checked, retrying ({})", documentId, attempt);
                 KycDocument fresh = kycDocumentRepository.findById(documentId).orElseThrow();
@@ -233,6 +233,7 @@ public class DocumentProcessor {
             }
         }
         log.error("Could not save the check result for KYC document {}", documentId);
+        return doc;
     }
 
 }

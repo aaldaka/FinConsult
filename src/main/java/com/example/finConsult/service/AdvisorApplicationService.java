@@ -143,6 +143,11 @@ public class AdvisorApplicationService {
     @Transactional
     public AdvisorApplicationResponse approve(Long id, User admin) {
         AdvisorApplication application = findPending(id);
+        boolean stillChecking = certificateRepository.findByApplication(application).stream().anyMatch(c -> c.getStatus() == CertificateStatus.PROCESSING);
+        if (stillChecking) {
+            throw new InvalidRequest("Certificates are still being checked, try again in a moment");
+        }
+
         User applicant = application.getUser();
 
         if (applicant.getRole() != UserRole.CLIENT) {

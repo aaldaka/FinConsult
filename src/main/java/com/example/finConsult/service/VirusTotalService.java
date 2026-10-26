@@ -94,6 +94,7 @@ public class VirusTotalService {
             cache.put(sha256, result);
             return result;
 
+
         } catch (HttpClientErrorException.TooManyRequests e) {
             log.warn("VirusTotal quota exceeded");
             return ScanResult.skipped("quota exceeded");
