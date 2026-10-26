@@ -6,6 +6,7 @@ import com.example.finConsult.model.ApplicationCertificate;
 import com.example.finConsult.model.KycDocument;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.CertificateStatus;
+import com.example.finConsult.model.enums.KycStatus;
 import com.example.finConsult.model.enums.NotificationType;
 import com.example.finConsult.model.enums.UserRole;
 import com.example.finConsult.repository.ApplicationCertificateRepository;
@@ -13,6 +14,8 @@ import com.example.finConsult.repository.KycDocumentRepository;
 import com.example.finConsult.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -100,7 +103,7 @@ public class DocumentProcessor {
             doc.setFlagReason("Could not read the file");
         }
 
-        kycDocumentRepository.save(doc);
+        saveCheckResult(documentId, doc);
         log.info("KYC document {} checked, flag: {}", documentId, doc.getFlagReason());
     }
 
@@ -198,4 +201,38 @@ public class DocumentProcessor {
             notificationService.create(admin, NotificationType.DOCUMENT_FLAGGED, message, null);
         }
     }
+
+    private void saveCheckResult(Long documentId, KycDocument doc) {
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                kycDocumentRepository.save(doc);
+                return;
+            } catch (ObjectOptimisticLockingFailureException e) {
+                log.warn("KYC document {} changed while being checked, retrying ({})", documentId, attempt);
+                KycDocument fresh = kycDocumentRepository.findById(documentId).orElseThrow();
+                fresh.setDetectedType(doc.getDetectedType());
+                fresh.setSha256(doc.getSha256());
+                fresh.setFlagReason(doc.getFlagReason());
+
+                // approved a moment ago, but the check flagged it: send it back to review
+                if (fresh.getStatus() == KycStatus.APPROVED && fresh.getFlagReason() != null) {
+                    fresh.setStatus(KycStatus.PENDING);
+                    fresh.setReviewedBy(null);
+                    fresh.setReviewedAt(null);
+                    log.warn("KYC document {} was approved but the check flagged it, sent back to review", documentId);
+                }
+                doc = fresh;
+            } catch (DataIntegrityViolationException e) {
+                // the client already has another pending document of this type, so keep the approval and only record the flag
+                log.warn("KYC document {} could not go back to pending, keeping the approval with the flag", documentId);
+                KycDocument fresh = kycDocumentRepository.findById(documentId).orElseThrow();
+                fresh.setDetectedType(doc.getDetectedType());
+                fresh.setSha256(doc.getSha256());
+                fresh.setFlagReason(doc.getFlagReason());
+                doc = fresh;
+            }
+        }
+        log.error("Could not save the check result for KYC document {}", documentId);
+    }
+
 }
