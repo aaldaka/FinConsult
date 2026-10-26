@@ -37,9 +37,10 @@ public class DocumentProcessor {
     private final Executor executor;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final VirusTotalService virusTotalService;
 
     public DocumentProcessor(ApplicationCertificateRepository certificateRepository, KycDocumentRepository kycDocumentRepository, FileStorageService fileStorageService, NotificationStreamService streamService,
-                             @Qualifier("docExecutor") Executor executor, UserRepository userRepository, NotificationService notificationService) {
+                             @Qualifier("docExecutor") Executor executor, UserRepository userRepository, NotificationService notificationService, VirusTotalService virusTotalService) {
         this.certificateRepository = certificateRepository;
         this.kycDocumentRepository = kycDocumentRepository;
         this.fileStorageService = fileStorageService;
@@ -47,6 +48,7 @@ public class DocumentProcessor {
         this.executor = executor;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.virusTotalService = virusTotalService;
     }
 
     public CompletableFuture<Void> processKycAll(Long userId, List<Long> documentIds) {
@@ -90,6 +92,8 @@ public class DocumentProcessor {
                 doc.setFlagReason("File content is not a real PDF, JPG, PNG or DOCX");
             } else if (kycDocumentRepository.existsBySha256AndUserNot(info.hash(), doc.getUser())) {
                 doc.setFlagReason("Same file was uploaded by another account");
+            } else if (virusTotalService.lookup(info.hash()).status() == ScanResult.Status.MALICIOUS) {
+                doc.setFlagReason("Matches malware");
             }
         } catch (IOException | RuntimeException e) {
             log.warn("Could not read KYC document {}: {}", documentId, e.getMessage());
@@ -142,8 +146,8 @@ public class DocumentProcessor {
 
             AdvisorApplication application = cert.getApplication();
             boolean duplicate = certificateRepository.existsBySha256AndApplication_UserNot(info.hash(), application.getUser()) || certificateRepository.existsBySha256AndApplicationAndIdNot(info.hash(), application, cert.getId());
-
-            cert.setStatus(info.type() != null && !duplicate ? CertificateStatus.VALID : CertificateStatus.FLAGGED);
+            boolean malware = info.type() != null && virusTotalService.lookup(info.hash()).status() == ScanResult.Status.MALICIOUS;
+            cert.setStatus(info.type() != null && !duplicate && !malware ? CertificateStatus.VALID : CertificateStatus.FLAGGED);
         } catch (IOException | RuntimeException e) {
             log.warn("Could not check certificate {}: {}", certificateId, e.getMessage());
             cert.setStatus(CertificateStatus.FLAGGED);
