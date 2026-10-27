@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BriefcaseBusiness, Check, FileText, X } from 'lucide-react'
 import { listMyApplications, submitApplication } from '@/api/advisorApplications'
 import { listMyDocuments } from '@/api/kyc'
-import type { Specialty } from '@/api/types'
+import type { CertificateStatus, Specialty } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -14,6 +14,18 @@ import { Alert } from '@/components/ui/Alert'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { SPECIALTIES, labelFor } from '@/lib/options'
+
+const certificateLabel: Record<CertificateStatus, string> = {
+  PROCESSING: 'Being checked',
+  VALID: 'Checked',
+  FLAGGED: 'Flagged for review',
+}
+
+const certificateTone: Record<CertificateStatus, 'pending' | 'success' | 'danger'> = {
+  PROCESSING: 'pending',
+  VALID: 'success',
+  FLAGGED: 'danger',
+}
 
 function Requirement({ met, children }: { met: boolean; children: React.ReactNode }) {
   return (
@@ -185,6 +197,7 @@ export function ApplyPage() {
                       <li key={certificate.id} className="flex items-center gap-1.5 text-xs text-muted">
                         <FileText className="size-3.5" aria-hidden="true" />
                         {certificate.originalFileName}
+                        <Badge tone={certificateTone[certificate.status]}>{certificateLabel[certificate.status]}</Badge>
                       </li>
                     ))}
                   </ul>

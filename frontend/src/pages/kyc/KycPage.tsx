@@ -130,6 +130,10 @@ export function KycPage() {
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-ink">{labelFor(doc.documentType)}</p>
                         <Badge tone={toneForStatus(doc.status)}>{doc.status}</Badge>
+                        {doc.flagged && <Badge tone="danger">Flagged for review</Badge>}
+                        {!doc.flagged && !doc.detectedType && doc.status === 'PENDING' && (
+                          <Badge tone="pending">Being checked</Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted">{doc.originalFileName}</p>
                       {doc.rejectionReason && <p className="mt-1 text-xs text-danger">Rejected: {doc.rejectionReason}</p>}

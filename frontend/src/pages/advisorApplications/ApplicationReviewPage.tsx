@@ -7,7 +7,7 @@ import {
   listApplicationsByStatus,
   rejectApplication,
 } from '@/api/advisorApplications'
-import type { KycStatus } from '@/api/types'
+import type { AdvisorApplicationResponse, KycStatus } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
@@ -20,6 +20,10 @@ import { Alert } from '@/components/ui/Alert'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { labelFor } from '@/lib/options'
+
+function stillChecking(application: AdvisorApplicationResponse) {
+  return application.certificates.some((c) => c.status === 'PROCESSING')
+}
 
 export function ApplicationReviewPage() {
   const queryClient = useQueryClient()
@@ -120,15 +124,18 @@ export function ApplicationReviewPage() {
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {application.certificates.map((certificate) => (
-                    <Button
-                      key={certificate.id}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDownload(certificate.id, certificate.originalFileName)}
-                    >
-                      <Download className="size-4" aria-hidden="true" />
-                      {certificate.originalFileName}
-                    </Button>
+                    <div key={certificate.id} className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDownload(certificate.id, certificate.originalFileName)}
+                      >
+                        <Download className="size-4" aria-hidden="true" />
+                        {certificate.originalFileName}
+                      </Button>
+                      {certificate.status === 'PROCESSING' && <Badge tone="pending">Being checked</Badge>}
+                      {certificate.status === 'FLAGGED' && <Badge tone="danger">Flagged</Badge>}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -139,6 +146,8 @@ export function ApplicationReviewPage() {
                     size="sm"
                     onClick={() => approveMutation.mutate(application.id)}
                     loading={approveMutation.isPending}
+                    disabled={stillChecking(application)}
+                    title={stillChecking(application) ? 'Certificates are still being checked' : undefined}
                   >
                     Approve
                   </Button>

@@ -122,11 +122,16 @@ export function KycReviewPage() {
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-ink">{doc.userEmail}</p>
                   <Badge tone={toneForStatus(doc.status)}>{doc.status}</Badge>
+                  {doc.flagged && <Badge tone="danger">Flagged</Badge>}
+                  {!doc.flagged && !doc.detectedType && doc.status === 'PENDING' && (
+                    <Badge tone="pending">Being checked</Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted">
                   {labelFor(doc.documentType)} · {doc.originalFileName}
                 </p>
                 <p className="text-xs text-muted">Submitted {formatDate(doc.submittedAt)}</p>
+                {doc.flagReason && <p className="mt-1 text-xs text-danger">Flagged: {doc.flagReason}</p>}
                 {doc.rejectionReason && <p className="mt-1 text-xs text-danger">Rejected: {doc.rejectionReason}</p>}
               </div>
 

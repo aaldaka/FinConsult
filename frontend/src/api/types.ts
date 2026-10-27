@@ -39,7 +39,7 @@ export interface ErrorResponse {
   path: string
 }
 
-/** Auth payload. `token` is null on register — the user must verify their email first. */
+/** Auth payload. `token` is null on register, the user must verify their email first. */
 export interface AuthResponse {
   id: number
   email: string
@@ -178,12 +178,20 @@ export interface KycDocResponse {
   rejectionReason: string | null
   submittedAt: string
   reviewedAt: string | null
+  detectedType: string | null
+  flagged: boolean
+  /** Only sent to admins. */
+  flagReason: string | null
 }
+
+export type CertificateStatus = 'PROCESSING' | 'VALID' | 'FLAGGED'
 
 export interface CertificateResponse {
   id: number
   originalFileName: string
   fileSize: number
+  status: CertificateStatus
+  detectedType: string | null
 }
 
 export interface AdvisorApplicationResponse {
