@@ -18,10 +18,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Runs once per request: if a valid Bearer JWT is present, populates the Spring
- * Security context so the rest of the chain sees an authenticated user. Silently
- * leaves the request unauthenticated on any failure, letting the security filter
- * chain's own 401/403 handling take over downstream.
+ * Runs once per request: if there is a valid JWT, sets the logged in user in the
+ * security context. If not, the request stays unauthenticated and gets a 401.
  */
 @Slf4j
 @Component
@@ -37,6 +35,14 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         String headerAuth = request.getHeader("Authorization");
         if (StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
             return headerAuth.substring(7, headerAuth.length()); //remove it we need the remaining parts
+        }
+        //sse cant send headers, only the stream can use ?token=
+        if ("/notifications/stream".equals(request.getRequestURI())) {
+            String queryToken = request.getParameter("token");
+            if (StringUtils.hasText(queryToken)) {
+                log.debug("Using query token for the notification stream");
+                return queryToken;
+            }
         }
         return null;
     }

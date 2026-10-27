@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/AuthContext'
 import { listMyUnreadNotifications } from '@/api/notifications'
 import { cn } from '@/lib/cn'
 import { initials } from '@/lib/format'
+import { useNotificationStream } from '@/lib/useNotificationStream'
 
 interface NavItem {
   to: string
@@ -37,9 +38,10 @@ export function AppLayout() {
   const { data: unread } = useQuery({
     queryKey: ['notifications', 'unread'],
     queryFn: listMyUnreadNotifications,
-    refetchInterval: 30_000,
     enabled: !!user,
   })
+
+  useNotificationStream(user?.id)
 
   if (!user) return null
 
