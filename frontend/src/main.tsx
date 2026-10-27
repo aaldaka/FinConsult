@@ -1,12 +1,19 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/lib/AuthContext'
+import { isConflict } from '@/lib/errors'
 
 const queryClient = new QueryClient({
+  // 409 = someone else changed it first, refetch
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      if (isConflict(error)) queryClient.invalidateQueries()
+    },
+  }),
   defaultOptions: {
     queries: {
       retry: 1,

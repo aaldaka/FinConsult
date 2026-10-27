@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
-import { errorMessage } from '@/lib/errors'
+import { errorMessage, isConflict } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import { labelFor } from '@/lib/options'
 
@@ -37,7 +37,16 @@ export function AdvisorDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['appointments'] })
       navigate('/appointments')
     },
-    onError: (err) => setBookError(errorMessage(err)),
+    onError: (err) => {
+      setSelectedSlot(null)
+      // 409 is also used for kyc/strikes errors, only replace the race ones
+      const message = errorMessage(err)
+      const lostRace =
+        message === 'This slot is no longer available' ||
+        message === 'This record was changed by someone else. Please refresh and try again' ||
+        message === 'This conflicts with an existing record'
+      setBookError(isConflict(err) && lostRace ? 'This slot was just booked by someone else. Please pick another time.' : message)
+    },
   })
 
   function handleBook() {

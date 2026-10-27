@@ -4,9 +4,13 @@ import type { ErrorResponse } from '@/api/types'
 const NETWORK_MESSAGE = 'Cannot reach the server. Check your connection and try again.'
 const FALLBACK_MESSAGE = 'Something went wrong. Please try again.'
 
+export function isConflict(error: unknown): boolean {
+  return error instanceof AxiosError && error.response?.status === 409
+}
+
 /**
  * Pulls the `message` field out of the API's ErrorResponse, which is what the
- * backend intends users to read. Falls back sensibly when the server is
+ * backend intends users to read. Falls back to a default when the server is
  * unreachable or returns something unexpected.
  */
 export function errorMessage(error: unknown): string {
