@@ -19,7 +19,7 @@ export async function updateMyAdvisorProfile(body: UpdateAdvisorRequest) {
 }
 
 /**
- * There is no GET /advisors/me — the backend only exposes lookup by advisor ID
+ * There is no GET /advisors/me, the backend only exposes lookup by advisor ID
  * (which the frontend doesn't know for "myself") or a partial-update PATCH.
  * `updateAdvisor` only applies non-null fields, so an empty body is a safe,
  * side-effect-free way to read back the caller's own current advisor record.

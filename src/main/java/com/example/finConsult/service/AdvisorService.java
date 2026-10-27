@@ -120,7 +120,7 @@ public class AdvisorService {
         log.info("Advisor {} deactivated by admin {} ({} appointments cancelled)", advisorId, admin.getId(), upcoming.size());
     }
 
-    /** Partial update — only non-null fields on the request are applied. */
+    /** Partial update, only non-null fields are applied. */
     @Transactional
     public Advisor updateAdvisor(User user, UpdateAdvisorRequest updateAdvisorRequest){
         Advisor advisor = advisorRepository.findByUser(user)

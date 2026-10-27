@@ -37,7 +37,7 @@ public class ProfileService {
         return mapper.toProfile(profile);
     }
 
-    /** Partial update — only non-null fields on the request are applied. */
+    /** Partial update, only non-null fields are applied. */
     @Transactional
     public ProfileUpdateResponse updateProfile(User user, UpdateProfileRequest request) {
         Profile profile = getProfileOrThrow(user);

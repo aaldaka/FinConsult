@@ -27,8 +27,7 @@ api.interceptors.response.use(
     const status = error?.response?.status
     const url: string = error?.config?.url ?? ''
 
-    // A failed login legitimately returns 401 — that belongs to the form, not the
-    // session reaper, otherwise submitting bad credentials would bounce the page.
+    // wrong password on login is also a 401, the form shows that one so dont log out
     const isLoginAttempt = url.includes('/auth/login')
 
     if (status === 401 && !isLoginAttempt) {

@@ -95,7 +95,7 @@ public class AuthService {
      * emailed verification link is used.
      *
      * @param request the new account's details
-     * @return the created account's public details (no token yet — must verify first)
+     * @return the created account's public details (no token yet, must verify first)
      * @throws EmailExists if the email is already registered
      */
     @Transactional //following ACID

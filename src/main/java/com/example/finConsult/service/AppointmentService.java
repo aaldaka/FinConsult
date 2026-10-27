@@ -49,7 +49,7 @@ public class AppointmentService {
     /**
      * Books a slot, leaving it PENDING until the advisor confirms. Checks the advisor
      * is active, the specialty matches the service (GENERAL advisors take anything),
-     * and — if the service requires KYC — that the client has an approved document.
+     * and if the service requires KYC, that the client has an approved document.
      */
     @Transactional
     public Appointment bookSlot(User client, Long slotId, Long serviceId) {
@@ -135,7 +135,7 @@ public class AppointmentService {
 
     /**
      * Advisor cancellations never add a strike. Client cancellations only add one
-     * (and blacklist at 3) when done less than 24h before the slot — too late for the
+     * (and blacklist at 3) when done less than 24h before the slot, too late for the
      * advisor to re-fill it, so it's treated like a no-show. The freed slot is reopened
      * for booking unless the client cancelled inside the last {@value
      * #LATE_CANCEL_RELEASE_CUTOFF_HOURS} hours before the slot, where there's realistically
@@ -301,7 +301,7 @@ public class AppointmentService {
         return appointmentRepository.save(appointment);
     }
 
-    /** Used for cascading cancellations (e.g. account deactivation) — never adds a strike, client isn't at fault. */
+    /** Used for cascading cancellations (e.g. account deactivation), never adds a strike, client isn't at fault. */
     @Transactional
     public void adminCancelAppointment(Long appointmentId, String reason, User admin) {
         Appointment appointment = appointmentRepository.findById(appointmentId)

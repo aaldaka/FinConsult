@@ -28,7 +28,7 @@ public class EmailService {
      * Sends a plain-text email async; failures are logged, not thrown, so a mail
      * outage never breaks the caller.
      *
-     * @param type short purpose label for the log line (e.g. "verification", "password-reset") — never the subject or body
+     * @param type short purpose label for the log line (e.g. "verification", "password-reset"), never the subject or body
      */
     @Async("mailExecutor")
     public void sendEmail(String to, String subject, String body, String type) {

@@ -7,7 +7,7 @@ export type SessionUser = Omit<AuthResponse, 'token'>
 
 /**
  * Session lives in localStorage so a refresh keeps the user signed in.
- * Reads are defensive: a cleared or corrupted store must not crash the app.
+ * Reads are wrapped in try/catch so a cleared or broken store doesnt crash the app.
  */
 export const session = {
   getToken(): string | null {
@@ -32,7 +32,7 @@ export const session = {
       localStorage.setItem(TOKEN_KEY, token)
       localStorage.setItem(USER_KEY, JSON.stringify(user))
     } catch {
-      /* private mode / blocked storage — session stays in memory for this tab only */
+      /* private mode / blocked storage, session stays in memory for this tab only */
     }
   },
 

@@ -2,14 +2,14 @@
 @import 'tailwindcss';
 
 /*
- * FinConsult design tokens — refined "trust navy + premium gold" banking palette.
+ * FinConsult colors: navy + gold.
  * Components must reference these (bg-navy, text-gold, ...) and never hardcode hex.
  */
 @theme {
   --color-navy: #0b1120;
   --color-royal: #1e3a8a;
   --color-gold: #c9a24b;
-  --color-gold-deep: #a16207; /* 4.5:1+ on white — use for gold TEXT/icons, not just fills */
+  --color-gold-deep: #a16207; /* darker gold for text/icons so its readable on white */
   --color-success: #10b981;
   --color-pending: #f59e0b;
   --color-danger: #dc2626;
@@ -70,7 +70,7 @@
   background-image: linear-gradient(160deg, var(--color-navy) 0%, var(--color-royal) 100%);
 }
 
-/* Frosted glass treatment for the top nav — used sparingly, not on every surface. */
+/* frosted glass for the top nav */
 @utility glass-nav {
   background-image: linear-gradient(160deg, rgb(11 17 32 / 0.9) 0%, rgb(30 58 138 / 0.86) 100%);
   backdrop-filter: blur(16px) saturate(140%);
@@ -143,8 +143,7 @@
   animation: shimmer 1.6s ease-in-out infinite;
 }
 
-/* Staggered entrance for grids/lists. Capped at 10 items — beyond that the extra
-   delay makes long lists feel sluggish, so items past #10 all share the last delay. */
+/* staggered animation for lists, capped at 10 items so long lists dont lag */
 @layer utilities {
   .stagger > * {
     animation: fade-in-up 0.45s var(--ease-out-expo) both;

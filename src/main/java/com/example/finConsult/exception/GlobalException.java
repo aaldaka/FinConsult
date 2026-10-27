@@ -19,9 +19,7 @@ import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 /**
- * Central exception-to-HTTP-response mapping. Every handler below turns a thrown
- * exception into the same {@link ErrorResponse} shape so API clients can rely on one
- * error contract regardless of which endpoint failed.
+ * Maps exceptions to HTTP responses, all in the same {@link ErrorResponse} shape.
  */
 @Slf4j
 @RestControllerAdvice
