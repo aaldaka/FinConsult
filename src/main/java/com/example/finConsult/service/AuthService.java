@@ -76,6 +76,10 @@ public class AuthService {
         }
 
         User user = verificationToken.getUser();
+        if (user.getUserStatus() != UNVERIFIED) {
+            log.warn("Email verification rejected: user {} is {}", user.getId(), user.getUserStatus());
+            throw new InformationIncorrect("This account cannot be verified.");
+        }
         user.setUserStatus(ACTIVE);
         userRepository.save(user);
 

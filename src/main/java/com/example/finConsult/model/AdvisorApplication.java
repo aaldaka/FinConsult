@@ -14,40 +14,40 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Table(name = "advisor_applications")
-    public class AdvisorApplication extends BaseEntity {
+public class AdvisorApplication extends BaseEntity {
 
-        @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-        @ManyToOne
-        @JoinColumn(name = "user_id", nullable = false)
-        private User user; // the client requesting to become an advisor
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user; // the client requesting to become an advisor
 
-        @Column(nullable = false)
-        private String title; // proposed job title
+    @Column(nullable = false)
+    private String title; // proposed job title
 
-        @Enumerated(EnumType.STRING)
-        @Column(nullable = false)
-        private Specialty specialty;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Specialty specialty;
 
-        @Column(name = "years_of_experience")
-        private int yearsOfExperience;
+    @Column(name = "years_of_experience")
+    private int yearsOfExperience;
 
-        @Enumerated(EnumType.STRING)
-        @Column(nullable = false)
-        private KycStatus status = KycStatus.PENDING; // same status as kyc
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private KycStatus status = KycStatus.PENDING; // same status as kyc
 
-        @ManyToOne
-        @JoinColumn(name = "reviewed_by")
-        private User reviewedBy; // which admin, auditing
+    @ManyToOne
+    @JoinColumn(name = "reviewed_by")
+    private User reviewedBy; // which admin, auditing
 
-        private LocalDateTime reviewedAt;
+    private LocalDateTime reviewedAt;
 
-        @Column(name = "rejection_reason")
-        private String rejectionReason;
+    @Column(name = "rejection_reason")
+    private String rejectionReason;
 
-        @Version
-        @ColumnDefault("0")
-        private Long version; //optimistic locks
+    @Version
+    @ColumnDefault("0")
+    private Long version; //optimistic locks
 }

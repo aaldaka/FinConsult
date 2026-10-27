@@ -130,9 +130,9 @@ public class DocumentProcessor {
                     }
                 })
                 .exceptionally(e -> {
-            log.error("Document checks failed", e);
-            return null;
-        });
+                    log.error("Document checks failed", e);
+                    return null;
+                });
     }
 
     // runs on a doc-worker thread
