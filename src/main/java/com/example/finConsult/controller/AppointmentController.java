@@ -1,6 +1,5 @@
 package com.example.finConsult.controller;
 
-import com.example.finConsult.service.AdvisorService;
 import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.Advisor;
 import com.example.finConsult.model.Appointment;
@@ -13,6 +12,7 @@ import com.example.finConsult.model.response.AppointmentResponse;
 import com.example.finConsult.model.response.ErrorResponse;
 import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.security.MyUserDetails;
+import com.example.finConsult.service.AdvisorService;
 import com.example.finConsult.service.AppointmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

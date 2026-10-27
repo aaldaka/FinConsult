@@ -1,11 +1,7 @@
 package com.example.finConsult.service;
 
 
-import com.example.finConsult.exception.AccountNotActive;
-import com.example.finConsult.exception.EmailExists;
-import com.example.finConsult.exception.InformationIncorrect;
-import com.example.finConsult.exception.InformationNotFound;
-import com.example.finConsult.exception.InvalidRequest;
+import com.example.finConsult.exception.*;
 import com.example.finConsult.model.PasswordResetToken;
 import com.example.finConsult.model.Profile;
 import com.example.finConsult.model.User;
@@ -29,8 +25,9 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import static com.example.finConsult.model.enums.UserRole.*;
-import static com.example.finConsult.model.enums.UserStatus.*;
+import static com.example.finConsult.model.enums.UserRole.CLIENT;
+import static com.example.finConsult.model.enums.UserStatus.ACTIVE;
+import static com.example.finConsult.model.enums.UserStatus.UNVERIFIED;
 
 /**
  * Registration, login, email verification and password management for client

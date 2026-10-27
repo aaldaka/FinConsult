@@ -3,7 +3,8 @@ package com.example.finConsult.model;
 import com.example.finConsult.model.enums.DocumentType;
 import com.example.finConsult.model.enums.Specialty;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Getter

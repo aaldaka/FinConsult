@@ -1,10 +1,13 @@
 package com.example.finConsult.service;
 
-import com.example.finConsult.exception.NotEligible;
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
+import com.example.finConsult.exception.NotEligible;
 import com.example.finConsult.mapper.ResponseMapper;
-import com.example.finConsult.model.*;
+import com.example.finConsult.model.Advisor;
+import com.example.finConsult.model.AdvisorApplication;
+import com.example.finConsult.model.ApplicationCertificate;
+import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.*;
 import com.example.finConsult.model.request.AdvisorApplicationRequest;
 import com.example.finConsult.model.response.AdvisorApplicationResponse;

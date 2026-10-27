@@ -3,7 +3,8 @@ package com.example.finConsult.model.request;
 import com.example.finConsult.model.enums.Specialty;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 @Setter

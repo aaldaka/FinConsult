@@ -3,16 +3,23 @@ package com.example.finConsult.service;
 import com.example.finConsult.exception.EmailExists;
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
-import com.example.finConsult.model.*;
+import com.example.finConsult.model.Advisor;
+import com.example.finConsult.model.Appointment;
+import com.example.finConsult.model.Profile;
+import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.*;
 import com.example.finConsult.model.request.AdvisorRequest;
 import com.example.finConsult.model.request.UpdateAdvisorRequest;
-import com.example.finConsult.repository.*;
+import com.example.finConsult.repository.AdvisorRepository;
+import com.example.finConsult.repository.AppointmentRepository;
+import com.example.finConsult.repository.ProfileRepository;
+import com.example.finConsult.repository.UserRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 
 /**

@@ -3,7 +3,10 @@ package com.example.finConsult.model.response;
 import com.example.finConsult.model.enums.DocumentType;
 import com.example.finConsult.model.enums.Specialty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Setter

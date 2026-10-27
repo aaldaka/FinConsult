@@ -2,7 +2,9 @@ package com.example.finConsult.model;
 
 import com.example.finConsult.model.enums.SlotStatus;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
 @Entity

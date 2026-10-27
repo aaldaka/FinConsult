@@ -203,7 +203,7 @@ public class DocumentProcessor {
         }
     }
 
-    private KycDocument saveCheckResult(Long documentId, KycDocument doc) {
+    KycDocument saveCheckResult(Long documentId, KycDocument doc) {
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
                 return kycDocumentRepository.save(doc);
