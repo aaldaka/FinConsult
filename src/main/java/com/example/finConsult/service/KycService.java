@@ -136,7 +136,7 @@ public class KycService {
         Page<KycDocument> docs = (docType == null)
                 ? kycDocumentRepository.findByStatus(status, p)
                 : kycDocumentRepository.findByStatusAndDocumentType(status, docType, p);
-        return docs.map(mapper::toKyc);
+        return docs.map(mapper::toKycForAdmin);
     }
 
     @Transactional
@@ -153,7 +153,7 @@ public class KycService {
         auditLogService.log(admin, AuditAction.KYC_APPROVED, "KycDocument", id,
                 "Approved " + doc.getDocumentType() + " for " + doc.getUser().getEmail());
         log.info("KYC document {} approved by admin {}", id, admin.getId());
-        return mapper.toKyc(doc);
+        return mapper.toKycForAdmin(doc);
     }
 
     /** Requires a rejection reason. */
@@ -175,7 +175,7 @@ public class KycService {
         auditLogService.log(admin, AuditAction.KYC_REJECTED, "KycDocument", id,
                 "Rejected " + doc.getDocumentType() + " for " + doc.getUser().getEmail());
         log.info("KYC document {} rejected by admin {}", id, admin.getId());
-        return mapper.toKyc(doc);
+        return mapper.toKycForAdmin(doc);
     }
 
 

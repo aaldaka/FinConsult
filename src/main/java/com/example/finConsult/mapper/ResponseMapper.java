@@ -27,11 +27,22 @@ public class ResponseMapper {
                 profile.getProfilePicturePath() != null ? profile.getProfilePicturePath() : DEFAULT_PICTURE_PATH);
     }
 
+    // client view: says whether the file was flagged, but never why
     public KycDocResponse toKyc(KycDocument d) {
+        return buildKyc(d, null);
+    }
+
+    // admin view: also carries the flag reason
+    public KycDocResponse toKycForAdmin(KycDocument d) {
+        return buildKyc(d, d.getFlagReason());
+    }
+
+    private KycDocResponse buildKyc(KycDocument d, String flagReason) {
         return new KycDocResponse(
                 d.getId(), d.getUser().getEmail(), d.getDocumentType(),
                 d.getOriginalFileName(), d.getFileSize(), d.getStatus(),
-                d.getRejectionReason(), d.getCreatedAt(), d.getReviewedAt());
+                d.getRejectionReason(), d.getCreatedAt(), d.getReviewedAt(),
+                d.getDetectedType(), d.getFlagReason() != null, flagReason);
     }
 
     public AuditLogResponse toAuditLog(AuditLog entry) {
@@ -69,7 +80,8 @@ public class ResponseMapper {
     }
 
     public CertificateResponse toCertificate(ApplicationCertificate c) {
-        return new CertificateResponse(c.getId(), c.getOriginalFileName(), c.getFileSize());
+        return new CertificateResponse(c.getId(), c.getOriginalFileName(), c.getFileSize(),
+                c.getStatus(), c.getDetectedType());
     }
 
     public AdvisorApplicationResponse toApplication(AdvisorApplication application, List<ApplicationCertificate> certificates) {

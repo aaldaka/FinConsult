@@ -29,4 +29,9 @@ public class KycDocResponse {
     private String rejectionReason;
     private LocalDateTime submittedAt;
     private LocalDateTime reviewedAt;
+    @Schema(description = "Type found by the background check, null until it has finished", nullable = true)
+    private String detectedType;
+    private boolean flagged;
+    @Schema(description = "Why the background check flagged the file, admin views only", nullable = true)
+    private String flagReason;
 }
