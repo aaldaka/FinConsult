@@ -17,7 +17,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<SessionUser | null>(() => session.getUser())
+  const [user, setUser] = useState<SessionUser | null>(() => (session.getToken() ? session.getUser() : null))
 
   const logout = useCallback(() => {
     session.clear()
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (body: RegistrationRequest) => {
     const res = await authApi.register(body)
-    // Registration never returns a token — the account starts UNVERIFIED until the emailed link is used.
+    // no token on register, account stays UNVERIFIED until the email link is used
     return { verified: !!res.token }
   }, [])
 

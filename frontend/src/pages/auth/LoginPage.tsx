@@ -46,7 +46,7 @@ export function LoginPage() {
   return (
     <AuthShell title="Welcome back" subtitle="Log in to FinConsult">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {expired && <Alert>Your session expired. Please log in again.</Alert>}
+        {expired && <Alert>Your session has ended, please log in again.</Alert>}
         {error && <Alert>{error}</Alert>}
 
         <Input label="Email" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
