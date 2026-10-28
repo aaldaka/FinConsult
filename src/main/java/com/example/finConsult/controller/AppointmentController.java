@@ -49,11 +49,13 @@ public class AppointmentController { // patch to partially update things instead
 
     @Operation(summary = "Book an available slot for a service type")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Appointment booked, pending advisor confirmation", content = @Content(schema = @Schema(implementation = AppointmentResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Slot unavailable, advisor inactive, specialty mismatch or missing KYC", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "201", description = "Appointment booked, pending advisor confirmation", content = @Content(schema = @Schema(implementation = AppointmentResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Advisor inactive, specialty mismatch or missing KYC", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not a client", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Slot or service type not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "404", description = "Slot or service type not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Slot was booked by someone else first (only one booking wins)", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+
     })
     @PostMapping("/book/{slotId}")
     @PreAuthorize("hasRole('CLIENT')")
@@ -71,7 +73,8 @@ public class AppointmentController { // patch to partially update things instead
             @ApiResponse(responseCode = "400", description = "Not the advisor's appointment, or appointment is not pending", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not an advisor", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Appointment or advisor profile not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "404", description = "Appointment or advisor profile not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Changed by someone else at the same moment, refresh and try again", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PatchMapping("/{id}/confirm")
     @PreAuthorize("hasRole('ADVISOR')")
@@ -88,7 +91,8 @@ public class AppointmentController { // patch to partially update things instead
             @ApiResponse(responseCode = "200", description = "Appointment cancelled", content = @Content(schema = @Schema(implementation = MessageResponse.class))),
             @ApiResponse(responseCode = "400", description = "Caller is not a party to the appointment, or it is already cancelled/no-show", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Appointment not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "404", description = "Appointment not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Changed by someone else at the same moment, refresh and try again", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<?> cancelAppointment(@AuthenticationPrincipal UserDetails userDetails,
@@ -127,7 +131,8 @@ public class AppointmentController { // patch to partially update things instead
             @ApiResponse(responseCode = "400", description = "Not the advisor's appointment, not confirmed, or grace period has not elapsed", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not an advisor", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Appointment or advisor profile not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "404", description = "Appointment or advisor profile not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Changed by someone else at the same moment, refresh and try again", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PatchMapping("/{id}/no-show")
     @PreAuthorize("hasRole('ADVISOR')")
@@ -144,7 +149,8 @@ public class AppointmentController { // patch to partially update things instead
             @ApiResponse(responseCode = "400", description = "A reason is required, or the appointment was not marked as a no-show", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not an admin", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Appointment not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "404", description = "Appointment not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Changed by someone else at the same moment, refresh and try again", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PatchMapping("/{id}/excuse")
     @PreAuthorize("hasRole('ADMIN')")

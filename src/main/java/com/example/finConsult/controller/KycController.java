@@ -49,7 +49,8 @@ public class KycController {
             @ApiResponse(responseCode = "201", description = "Document submitted and pending review", content = @Content(schema = @Schema(implementation = KycDocResponse.class))),
             @ApiResponse(responseCode = "400", description = "Missing/oversized/unsupported file, or a pending document of this type already exists", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Caller is not a client", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "403", description = "Caller is not a client", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "A pending document of this type was created at the same moment", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping
     @PreAuthorize("hasRole('CLIENT')")
@@ -98,7 +99,8 @@ public class KycController {
             @ApiResponse(responseCode = "400", description = "Document is not pending review", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not an admin", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Document not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "404", description = "Document not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Changed by someone else at the same moment, refresh and try again", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PatchMapping("/{id}/approve")
     @PreAuthorize("hasRole('ADMIN')")
@@ -114,7 +116,8 @@ public class KycController {
             @ApiResponse(responseCode = "400", description = "A rejection reason is required, or the document is not pending review", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not an admin", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Document not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+            @ApiResponse(responseCode = "404", description = "Document not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Changed by someone else at the same moment, refresh and try again", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PatchMapping("/{id}/reject")
     @PreAuthorize("hasRole('ADMIN')")
@@ -143,9 +146,19 @@ public class KycController {
                 .body(resource);
     }
 
+    @Operation(summary = "Client uploads several KYC documents at once")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "All documents submitted and pending review", content = @Content(schema = @Schema(implementation = KycDocResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Files and types don't match up, a type is repeated, a file is invalid, or a pending document of that type exists", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not a client", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "A pending document of this type was created at the same moment", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     @PostMapping("/batch")
     @PreAuthorize("hasRole('CLIENT')")
-    public ResponseEntity<List<KycDocResponse>> submitAll(@RequestPart("files") List<MultipartFile> files, @RequestParam List<DocumentType> documentTypes, @AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<List<KycDocResponse>> submitAll(@RequestPart("files") List<MultipartFile> files,
+                                                          @Parameter(description = "One document type per file, in the same order") @RequestParam List<DocumentType> documentTypes,
+                                                          @AuthenticationPrincipal UserDetails userDetails) {
         User user = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.status(HttpStatus.CREATED).body(kycService.submitAll(user, files, documentTypes));
     }
