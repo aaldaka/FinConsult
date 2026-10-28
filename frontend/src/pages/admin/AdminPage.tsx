@@ -2,20 +2,22 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { createAdvisor, deactivateAdvisor, deactivateUser, listAuditLogs } from '@/api/admin'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate } from 'react-router-dom'
+import { ArrowRight, UserX } from 'lucide-react'
+import { createAdvisor, listAuditLogs } from '@/api/admin'
 import type { Specialty } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
-import { Textarea } from '@/components/ui/Textarea'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
 import { errorMessage } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import { SPECIALTIES, labelFor } from '@/lib/options'
+import { DeactivatePanel } from '@/pages/admin/DeactivatePanel'
 
 const advisorSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Enter a valid email'),
@@ -30,6 +32,7 @@ const advisorSchema = z.object({
 type AdvisorFormValues = z.infer<typeof advisorSchema>
 
 function CreateAdvisorCard() {
+  const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const {
@@ -50,6 +53,7 @@ function CreateAdvisorCard() {
       setError(null)
       setSuccess(`Created advisor account for ${advisor.name}.`)
       reset()
+      queryClient.invalidateQueries({ queryKey: ['admin', 'advisors'] })
     },
     onError: (err) => {
       setSuccess(null)
@@ -97,79 +101,6 @@ function CreateAdvisorCard() {
   )
 }
 
-function DeactivateCard() {
-  const [userId, setUserId] = useState('')
-  const [advisorId, setAdvisorId] = useState('')
-  const [reason, setReason] = useState('')
-  const [message, setMessage] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  const deactivateUserMutation = useMutation({
-    mutationFn: (id: number) => deactivateUser(id),
-    onSuccess: (res) => {
-      setError(null)
-      setMessage(res.msg)
-      setUserId('')
-    },
-    onError: (err) => setError(errorMessage(err)),
-  })
-
-  const deactivateAdvisorMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: number; reason: string }) => deactivateAdvisor(id, reason),
-    onSuccess: (res) => {
-      setError(null)
-      setMessage(res.msg)
-      setAdvisorId('')
-      setReason('')
-    },
-    onError: (err) => setError(errorMessage(err)),
-  })
-
-  return (
-    <Card>
-      <h2 className="mb-4 font-semibold text-ink">Deactivate accounts</h2>
-      {error && (
-        <div className="mb-4">
-          <Alert>{error}</Alert>
-        </div>
-      )}
-      {message && (
-        <div className="mb-4">
-          <Alert variant="success">{message}</Alert>
-        </div>
-      )}
-
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="space-y-3">
-          <Input label="User ID" type="number" value={userId} onChange={(e) => setUserId(e.target.value)} />
-          <Button
-            variant="danger"
-            loading={deactivateUserMutation.isPending}
-            disabled={!userId}
-            onClick={() => deactivateUserMutation.mutate(Number(userId))}
-          >
-            Deactivate user
-          </Button>
-          <p className="text-xs text-muted">For clients. Advisors must use the form on the right.</p>
-        </div>
-
-        <div className="space-y-3">
-          <Input label="Advisor ID" type="number" value={advisorId} onChange={(e) => setAdvisorId(e.target.value)} />
-          <Textarea label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
-          <Button
-            variant="danger"
-            loading={deactivateAdvisorMutation.isPending}
-            disabled={!advisorId || !reason.trim()}
-            onClick={() => deactivateAdvisorMutation.mutate({ id: Number(advisorId), reason })}
-          >
-            Deactivate advisor
-          </Button>
-        </div>
-      </div>
-    </Card>
-  )
-}
-
 function AuditLogCard() {
   const [page, setPage] = useState(0)
   const { data, isLoading, error } = useQuery({
@@ -197,9 +128,20 @@ function AuditLogCard() {
                 <span className="text-xs text-muted">{formatDateTime(entry.timestamp)}</span>
               </div>
               <p className="text-muted">
-                {entry.actorEmail} · {entry.entityType} #{entry.entityId}
+                <span className="font-medium text-ink">{entry.actorName}</span>
+                {entry.actorEmail !== 'SYSTEM' && <span className="text-xs"> ({entry.actorEmail})</span>} · {entry.entityType} #
+                {entry.entityId}
               </p>
               {entry.details && <p className="mt-1 text-xs text-muted">{entry.details}</p>}
+              {entry.action === 'APPOINTMENT_NO_SHOW' && entry.entityType === 'Appointment' && (
+                <Link
+                  to={`/no-shows?appointment=${entry.entityId}`}
+                  className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-royal hover:underline"
+                >
+                  Review no-show
+                  <ArrowRight className="size-3" aria-hidden="true" />
+                </Link>
+              )}
             </div>
           ))}
 
@@ -221,15 +163,22 @@ function AuditLogCard() {
 }
 
 export function AdminPage() {
+  const navigate = useNavigate()
   return (
     <div className="stagger space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink">Admin console</h1>
-        <p className="text-sm text-muted">Create advisor accounts, deactivate users, and review the audit trail.</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">Admin console</h1>
+          <p className="text-sm text-muted">Create advisor accounts, deactivate users, and review the audit trail.</p>
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => navigate('/no-shows')}>
+          <UserX className="size-4" aria-hidden="true" />
+          Review no-shows
+        </Button>
       </div>
 
       <CreateAdvisorCard />
-      <DeactivateCard />
+      <DeactivatePanel />
       <AuditLogCard />
     </div>
   )

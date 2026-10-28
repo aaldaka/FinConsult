@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap');
 @import 'tailwindcss';
 
 /*
@@ -21,6 +21,8 @@
   --color-hairline: #e2e8f0;
 
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  /* serif for page titles and hero headings, the body stays sans */
+  --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
 
   --radius-xl: 0.75rem;
 
@@ -42,6 +44,11 @@
 
   body {
     @apply bg-canvas text-ink font-sans antialiased;
+  }
+
+  h1 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
   }
 
   /* Dates, times and amounts line up in tables. */
@@ -68,6 +75,11 @@
 
 @utility gradient-navy {
   background-image: linear-gradient(160deg, var(--color-navy) 0%, var(--color-royal) 100%);
+}
+
+/* a touch lighter than gradient-navy, used on the admin deactivate cards */
+@utility gradient-navy-soft {
+  background-image: linear-gradient(160deg, #142142 0%, #2a4aa0 100%);
 }
 
 /* frosted glass for the top nav */

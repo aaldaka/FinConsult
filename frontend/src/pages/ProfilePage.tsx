@@ -11,9 +11,17 @@ import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { Alert } from '@/components/ui/Alert'
+import { Badge } from '@/components/ui/Badge'
+import { FilePreview } from '@/components/ui/FilePreview'
 import { errorMessage } from '@/lib/errors'
 import { SPECIALTIES, labelFor } from '@/lib/options'
-import type { Specialty } from '@/api/types'
+import type { Specialty, UserRole } from '@/api/types'
+
+const roleBadge: Record<UserRole, { label: string; tone: 'royal' | 'gold' | 'neutral' }> = {
+  ADMIN: { label: 'Admin', tone: 'gold' },
+  ADVISOR: { label: 'Advisor', tone: 'royal' },
+  CLIENT: { label: 'Client', tone: 'neutral' },
+}
 
 interface ProfileFormValues {
   firstName: string
@@ -23,11 +31,18 @@ interface ProfileFormValues {
 }
 
 function ProfileDetailsCard() {
+  const { user } = useAuth()
   const queryClient = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['profile', 'me'], queryFn: getMyProfile })
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [pendingPicture, setPendingPicture] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function clearPendingPicture() {
+    setPendingPicture(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   const { register, handleSubmit, reset } = useForm<ProfileFormValues>({
     values: data
@@ -61,6 +76,8 @@ function ProfileDetailsCard() {
     onSuccess: (res) => {
       queryClient.setQueryData(['profile', 'me'], res)
       setError(null)
+      setSuccess('Profile picture updated.')
+      clearPendingPicture()
     },
     onError: (err) => setError(errorMessage(err)),
   })
@@ -88,6 +105,15 @@ function ProfileDetailsCard() {
           alt="Profile"
           className="size-16 rounded-full border border-hairline object-cover shadow-card transition-transform duration-200 hover:scale-105"
         />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-ink">
+              {data.firstName} {data.lastName}
+            </p>
+            {user && <Badge tone={roleBadge[user.role].tone}>{roleBadge[user.role].label}</Badge>}
+          </div>
+          {user && <p className="truncate text-sm text-muted">{user.email}</p>}
+        </div>
         <div>
           <input
             ref={fileInputRef}
@@ -95,15 +121,30 @@ function ProfileDetailsCard() {
             accept="image/jpeg,image/png,image/jpg"
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) pictureMutation.mutate(file)
+              setSuccess(null)
+              setPendingPicture(e.target.files?.[0] ?? null)
             }}
           />
-          <Button variant="secondary" size="sm" loading={pictureMutation.isPending} onClick={() => fileInputRef.current?.click()}>
+          <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>
             Change picture
           </Button>
         </div>
       </div>
+
+      {pendingPicture && (
+        <div className="mb-6 space-y-3 rounded-xl border border-gold/30 bg-gold/5 p-3">
+          <p className="text-xs font-medium text-muted">New picture, not saved yet</p>
+          <FilePreview file={pendingPicture} onRemove={clearPendingPicture} />
+          <div className="flex gap-2">
+            <Button size="sm" loading={pictureMutation.isPending} onClick={() => pictureMutation.mutate(pendingPicture)}>
+              Save picture
+            </Button>
+            <Button size="sm" variant="ghost" onClick={clearPendingPicture}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       <form
         onSubmit={handleSubmit((v) => {

@@ -6,6 +6,7 @@ import { listMyUnreadNotifications } from '@/api/notifications'
 import { cn } from '@/lib/cn'
 import { initials } from '@/lib/format'
 import { useNotificationStream } from '@/lib/useNotificationStream'
+import logo from '@/assets/logo.svg'
 
 interface NavItem {
   to: string
@@ -53,13 +54,15 @@ export function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <header className="glass-nav sticky top-0 z-10 text-white shadow-card">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
+    <div className="min-h-screen overflow-x-clip bg-canvas">
+      <header className="glass-nav sticky top-0 z-10 rounded-b-md text-white shadow-card">
+        <div className="flex h-14 items-center gap-6 px-4 sm:px-6 lg:px-8">
           <NavLink to="/" className="group flex items-center gap-2 font-semibold tracking-tight">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-gold text-sm font-bold text-navy transition-transform duration-200 group-hover:scale-105">
-              FC
-            </span>
+            <img
+              src={logo}
+              alt=""
+              className="size-8 rounded-lg object-cover ring-1 ring-white/20 transition-transform duration-200 group-hover:scale-105"
+            />
             <span className="hidden sm:inline">FinConsult</span>
           </NavLink>
 

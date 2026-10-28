@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import logo from '@/assets/logo.svg'
 
 /**
  * Shared chrome for the public auth screens (login, register, reset, verify):
@@ -20,9 +21,7 @@ export function AuthShell({ title, subtitle, children }: { title?: string; subti
       <div className="relative w-full max-w-sm animate-fade-in-up">
         {(title || subtitle) && (
           <div className="mb-8 flex flex-col items-center gap-2 text-center">
-            <span className="flex size-12 items-center justify-center rounded-2xl gradient-navy text-lg font-bold text-gold shadow-glass">
-              FC
-            </span>
+            <img src={logo} alt="FinConsult" className="size-12 rounded-2xl object-cover shadow-glass" />
             {title && <h1 className="text-xl font-semibold text-ink">{title}</h1>}
             {subtitle && <p className="text-sm text-muted">{subtitle}</p>}
           </div>

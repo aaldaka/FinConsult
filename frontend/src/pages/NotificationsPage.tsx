@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell } from 'lucide-react'
-import { listMyNotifications, markNotificationRead } from '@/api/notifications'
+import { Bell, CheckCheck } from 'lucide-react'
+import { listMyNotifications, markAllNotificationsRead, markNotificationRead } from '@/api/notifications'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
@@ -21,12 +21,31 @@ export function NotificationsPage() {
     },
   })
 
+  const readAllMutation = useMutation({
+    mutationFn: markAllNotificationsRead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+
+  const unreadCount = data?.filter((n) => !n.read).length ?? 0
+
   return (
     <div className="space-y-6">
-      <div className="animate-fade-in-up">
-        <h1 className="text-2xl font-semibold text-ink">Notifications</h1>
-        <p className="text-sm text-muted">Updates about your appointments and account.</p>
+      <div className="flex flex-wrap items-end justify-between gap-4 animate-fade-in-up">
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">Notifications</h1>
+          <p className="text-sm text-muted">Updates about your appointments and account.</p>
+        </div>
+        {unreadCount > 0 && (
+          <Button variant="secondary" size="sm" loading={readAllMutation.isPending} onClick={() => readAllMutation.mutate()}>
+            <CheckCheck className="size-4" aria-hidden="true" />
+            Mark all read ({unreadCount})
+          </Button>
+        )}
       </div>
+
+      {readAllMutation.error && <Alert>{errorMessage(readAllMutation.error)}</Alert>}
 
       {error && <Alert>{errorMessage(error)}</Alert>}
       {isLoading && <Spinner />}
