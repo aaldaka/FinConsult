@@ -28,6 +28,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Client applications to become an advisor. A client needs an approved ID or passport,
+ * can only have one pending application, and gets 3 attempts in total.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -50,6 +54,7 @@ public class AdvisorApplicationService {
     private final ResponseMapper mapper;
     private final DocumentProcessor certificateProcessor;
 
+    /** Saves the application and certificates, the certificates are checked after the commit. */
     @Transactional
     public AdvisorApplicationResponse submit(User applicant, AdvisorApplicationRequest request, List<MultipartFile> certificates) {
         if (applicant.getRole() != UserRole.CLIENT) {
@@ -143,6 +148,7 @@ public class AdvisorApplicationService {
                 .map(a -> mapper.toApplication(a, certificateRepository.findByApplication(a)));
     }
 
+    /** Creates the advisor profile and switches the user's role. Blocked while certificates are still being checked. */
     @Transactional
     public AdvisorApplicationResponse approve(Long id, User admin) {
         AdvisorApplication application = findPending(id);
@@ -186,6 +192,7 @@ public class AdvisorApplicationService {
         return mapper.toApplication(application, certificateRepository.findByApplication(application));
     }
 
+    /** Requires a reason, which is sent to the applicant. */
     @Transactional
     public AdvisorApplicationResponse reject(Long id, String reason, User admin) {
         if (reason == null || reason.isBlank()) {

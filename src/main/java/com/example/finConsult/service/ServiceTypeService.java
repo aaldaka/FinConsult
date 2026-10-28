@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/** Lists the service types clients can book. */
 @Service
 @RequiredArgsConstructor
 public class ServiceTypeService {

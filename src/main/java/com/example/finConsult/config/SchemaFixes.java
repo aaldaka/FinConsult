@@ -8,6 +8,11 @@ import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+/**
+ * Runs on startup and adds the partial unique indexes JPA can't create: one active appointment
+ * per slot, one pending application per user, one pending KYC document per user and type.
+ * Also drops the old unique constraint on appointments.slot_id.
+ */
 @Slf4j
 @Component
 @Order(0)

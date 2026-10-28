@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 
+/** Wraps our User for Spring Security, the role becomes ROLE_CLIENT / ROLE_ADVISOR / ROLE_ADMIN. */
 @Data
 public class MyUserDetails implements UserDetails {
 

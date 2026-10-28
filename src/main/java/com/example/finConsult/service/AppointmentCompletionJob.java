@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/** Every 15 minutes, marks confirmed appointments whose slot has ended as COMPLETED. */
 @Slf4j
 @Component
 @RequiredArgsConstructor

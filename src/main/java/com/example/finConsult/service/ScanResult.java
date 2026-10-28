@@ -1,5 +1,6 @@
 package com.example.finConsult.service;
 
+/** Result of a VirusTotal lookup. */
 public record ScanResult(Status status, int maliciousCount, String note) {
     public enum Status {
         CLEAN,

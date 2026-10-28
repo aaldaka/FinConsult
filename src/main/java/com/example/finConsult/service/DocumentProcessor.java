@@ -28,6 +28,10 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+/**
+ * Checks uploaded KYC documents and certificates on the doc-worker pool: real file type,
+ * SHA-256 hash for duplicates, and a VirusTotal lookup. Flagged files notify the admins.
+ */
 @Slf4j
 @Component
 public class DocumentProcessor {
@@ -54,6 +58,7 @@ public class DocumentProcessor {
         this.virusTotalService = virusTotalService;
     }
 
+    /** One task per document on the pool, when all are done the client gets a KYC_CHECKED event. */
     public CompletableFuture<Void> processKycAll(Long userId, List<Long> documentIds) {
         log.info("Submitting {} KYC checks for user {}", documentIds.size(), userId);
 

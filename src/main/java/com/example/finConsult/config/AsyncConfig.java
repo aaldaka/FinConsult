@@ -7,6 +7,10 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
+/**
+ * Thread pools for document checks, emails and notification pushes. When a queue is full
+ * the caller runs the task itself instead of dropping it.
+ */
 @Configuration
 @EnableAsync
 public class AsyncConfig {

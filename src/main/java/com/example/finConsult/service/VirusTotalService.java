@@ -13,6 +13,10 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.*;
 
+/**
+ * Looks up a file hash on VirusTotal. The free plan allows 4 requests a minute, so calls
+ * wait for a permit and results are cached. Without an API key the scan is skipped.
+ */
 @Slf4j
 @Service
 public class VirusTotalService {
@@ -43,6 +47,7 @@ public class VirusTotalService {
                 .requestFactory(factory)
                 .build();
     }
+    /** @return the scan result, or SKIPPED if there is no key or no permit came back in time */
     public ScanResult lookup(String sha256) {
         if (apiKey == null || apiKey.isBlank()) {
             return ScanResult.skipped("no API key");

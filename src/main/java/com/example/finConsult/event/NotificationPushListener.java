@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+/** Pushes new notifications to the user's open SSE connections, only after the transaction commits. */
 @Component
 @RequiredArgsConstructor
 @Slf4j
