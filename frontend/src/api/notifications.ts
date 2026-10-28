@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { NotificationResponse } from './types'
+import type { MessageResponse, NotificationResponse } from './types'
 
 export async function listMyNotifications() {
   const { data } = await api.get<NotificationResponse[]>('/notifications/mine')
@@ -13,5 +13,10 @@ export async function listMyUnreadNotifications() {
 
 export async function markNotificationRead(id: number) {
   const { data } = await api.patch<NotificationResponse>(`/notifications/${id}/read`)
+  return data
+}
+
+export async function markAllNotificationsRead() {
+  const { data } = await api.patch<MessageResponse>('/notifications/mine/read-all')
   return data
 }

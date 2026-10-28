@@ -35,6 +35,12 @@ export function humanize(value: string | null | undefined): string {
     .join(' ')
 }
 
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export function initials(firstName?: string, lastName?: string): string {
   const a = firstName?.trim()?.charAt(0) ?? ''
   const b = lastName?.trim()?.charAt(0) ?? ''

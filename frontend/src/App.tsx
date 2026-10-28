@@ -16,6 +16,7 @@ import { KycReviewPage } from '@/pages/kyc/KycReviewPage'
 import { ApplyPage } from '@/pages/advisorApplications/ApplyPage'
 import { ApplicationReviewPage } from '@/pages/advisorApplications/ApplicationReviewPage'
 import { AdminPage } from '@/pages/admin/AdminPage'
+import { NoShowsPage } from '@/pages/admin/NoShowsPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 
@@ -51,6 +52,7 @@ function App() {
 
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/no-shows" element={<NoShowsPage />} />
             <Route path="/kyc-review" element={<KycReviewPage />} />
             <Route path="/advisor-applications" element={<ApplicationReviewPage />} />
           </Route>

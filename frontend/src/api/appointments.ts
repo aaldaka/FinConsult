@@ -38,6 +38,11 @@ export async function markNoShow(id: number) {
   return data
 }
 
+export async function listNoShows() {
+  const { data } = await api.get<AppointmentResponse[]>('/appointments/no-shows')
+  return data
+}
+
 export async function excuseNoShow(id: number, reason: string) {
   const { data } = await api.patch<AppointmentResponse>(`/appointments/${id}/excuse`, { reason })
   return data

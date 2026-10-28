@@ -145,7 +145,7 @@ export function AppointmentsPage() {
             label="Reason (optional)"
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
-            maxLength={500}
+            maxLength={255}
           />
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setCancelTarget(null)}>

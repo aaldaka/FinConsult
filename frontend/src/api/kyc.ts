@@ -30,6 +30,15 @@ export async function submitDocuments(items: { file: File; documentType: Documen
   return data
 }
 
+export async function replaceDocumentFile(id: number, file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await api.put<KycDocResponse>(`/kyc/${id}/file`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
 export async function approveDocument(id: number) {
   const { data } = await api.patch<KycDocResponse>(`/kyc/${id}/approve`)
   return data

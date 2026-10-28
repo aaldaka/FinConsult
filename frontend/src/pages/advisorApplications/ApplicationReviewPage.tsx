@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BriefcaseBusiness, Download } from 'lucide-react'
+import { AlertTriangle, BriefcaseBusiness, Download } from 'lucide-react'
 import {
   approveApplication,
   downloadCertificate,
@@ -17,12 +17,17 @@ import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
+import { cn } from '@/lib/cn'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { labelFor } from '@/lib/options'
 
 function stillChecking(application: AdvisorApplicationResponse) {
   return application.certificates.some((c) => c.status === 'PROCESSING')
+}
+
+function flaggedCount(application: AdvisorApplicationResponse) {
+  return application.certificates.filter((c) => c.status === 'FLAGGED').length
 }
 
 export function ApplicationReviewPage() {
@@ -32,6 +37,7 @@ export function ApplicationReviewPage() {
   const [rejectTarget, setRejectTarget] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
+  const [flaggedApproveTarget, setFlaggedApproveTarget] = useState<AdvisorApplicationResponse | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['advisorApplications', 'review', status, page],
@@ -44,9 +50,24 @@ export function ApplicationReviewPage() {
 
   const approveMutation = useMutation({
     mutationFn: (id: number) => approveApplication(id),
-    onSuccess: invalidate,
-    onError: (err) => setActionError(errorMessage(err)),
+    onSuccess: () => {
+      invalidate()
+      setFlaggedApproveTarget(null)
+    },
+    onError: (err) => {
+      setFlaggedApproveTarget(null)
+      setActionError(errorMessage(err))
+    },
   })
+
+  function handleApprove(application: AdvisorApplicationResponse) {
+    // flagged certificates need an explicit second confirmation
+    if (flaggedCount(application) > 0) {
+      setFlaggedApproveTarget(application)
+    } else {
+      approveMutation.mutate(application.id)
+    }
+  }
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: number; reason: string }) => rejectApplication(id, reason),
@@ -108,9 +129,25 @@ export function ApplicationReviewPage() {
       {data && data.content.length > 0 && (
         <div className="stagger space-y-2">
           {data.content.map((application) => (
-            <Card key={application.id} interactive className="flex flex-wrap items-start justify-between gap-3">
+            <Card
+              key={application.id}
+              interactive
+              className={cn(
+                'flex flex-wrap items-start justify-between gap-3',
+                flaggedCount(application) > 0 && application.status === 'PENDING' && 'border-danger/40',
+              )}
+            >
               <div>
                 <div className="flex items-center gap-2">
+                  {flaggedCount(application) > 0 && (
+                    <span
+                      className="flex size-6 items-center justify-center rounded-full bg-danger/10 text-danger"
+                      title={`${flaggedCount(application)} flagged certificate(s), check before approving`}
+                    >
+                      <AlertTriangle className="size-3.5" aria-hidden="true" />
+                      <span className="sr-only">Has flagged certificates</span>
+                    </span>
+                  )}
                   <p className="font-medium text-ink">{application.applicantName}</p>
                   <Badge tone={toneForStatus(application.status)}>{application.status}</Badge>
                 </div>
@@ -144,7 +181,7 @@ export function ApplicationReviewPage() {
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    onClick={() => approveMutation.mutate(application.id)}
+                    onClick={() => handleApprove(application)}
                     loading={approveMutation.isPending}
                     disabled={stillChecking(application)}
                     title={stillChecking(application) ? 'Certificates are still being checked' : undefined}
@@ -180,7 +217,7 @@ export function ApplicationReviewPage() {
             label="Reason"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            maxLength={500}
+            maxLength={255}
             required
           />
           <div className="mt-4 flex justify-end gap-2">
@@ -194,6 +231,37 @@ export function ApplicationReviewPage() {
               onClick={() => rejectMutation.mutate({ id: rejectTarget, reason: rejectReason })}
             >
               Reject
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {flaggedApproveTarget && (
+        <Modal className="max-w-md">
+          <h2 className="mb-1 flex items-center gap-2 font-semibold text-ink">
+            <AlertTriangle className="size-5 text-danger" aria-hidden="true" />
+            Approve with flagged certificates?
+          </h2>
+          <p className="mb-3 text-sm text-muted">
+            The background check flagged {flaggedCount(flaggedApproveTarget)} of {flaggedApproveTarget.applicantName}'s
+            certificates (wrong file type, a duplicate, or a malware match). Download and check them before approving.
+          </p>
+          <ul className="mb-4 space-y-1">
+            {flaggedApproveTarget.certificates
+              .filter((c) => c.status === 'FLAGGED')
+              .map((c) => (
+                <li key={c.id} className="flex items-center gap-2 text-sm text-danger">
+                  <AlertTriangle className="size-3.5" aria-hidden="true" />
+                  {c.originalFileName}
+                </li>
+              ))}
+          </ul>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setFlaggedApproveTarget(null)}>
+              Cancel
+            </Button>
+            <Button loading={approveMutation.isPending} onClick={() => approveMutation.mutate(flaggedApproveTarget.id)}>
+              Approve anyway
             </Button>
           </div>
         </Modal>

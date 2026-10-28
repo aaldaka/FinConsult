@@ -33,6 +33,15 @@ export async function submitApplication(request: AdvisorApplicationRequest, cert
   return data
 }
 
+export async function replaceCertificate(certificateId: number, file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await api.put<AdvisorApplicationResponse>(`/advisor-applications/certificates/${certificateId}/file`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
 export async function approveApplication(id: number) {
   const { data } = await api.patch<AdvisorApplicationResponse>(`/advisor-applications/${id}/approve`)
   return data

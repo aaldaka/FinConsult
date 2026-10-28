@@ -1,8 +1,13 @@
 import { api } from './client'
-import type { AdvisorRequest, AdvisorResponse, AuditLogResponse, MessageResponse, Page } from './types'
+import type { AdvisorRequest, AdvisorResponse, AuditLogResponse, MessageResponse, Page, UserSummaryResponse } from './types'
 
 export async function createAdvisor(body: AdvisorRequest) {
   const { data } = await api.post<AdvisorResponse>('/admin/advisors', body)
+  return data
+}
+
+export async function listActiveClients() {
+  const { data } = await api.get<UserSummaryResponse[]>('/admin/clients')
   return data
 }
 

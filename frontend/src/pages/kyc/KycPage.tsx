@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ShieldCheck, Upload, X } from 'lucide-react'
-import { listMyDocuments, submitDocuments } from '@/api/kyc'
-import type { DocumentType } from '@/api/types'
+import { Paperclip, RefreshCw, ShieldCheck, Upload } from 'lucide-react'
+import { listMyDocuments, replaceDocumentFile, submitDocuments } from '@/api/kyc'
+import type { DocumentType, KycDocResponse } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
@@ -10,6 +10,8 @@ import { Badge, toneForStatus } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
+import { FilePreview } from '@/components/ui/FilePreview'
+import { ReplaceFileModal } from '@/components/ReplaceFileModal'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { DOCUMENT_TYPES, labelFor } from '@/lib/options'
@@ -19,14 +21,34 @@ interface QueuedDocument {
   documentType: DocumentType
 }
 
+const ACCEPTED_TYPES = 'image/jpeg,image/png,application/pdf,.docx'
+
+// the background check has not finished yet, so the file can't be replaced
+function beingChecked(doc: KycDocResponse) {
+  return !doc.flagged && !doc.detectedType && doc.status === 'PENDING'
+}
+
 export function KycPage() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [documentType, setDocumentType] = useState<DocumentType>('NATIONAL_ID')
   const [queue, setQueue] = useState<QueuedDocument[]>([])
+  const [selected, setSelected] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [replaceTarget, setReplaceTarget] = useState<KycDocResponse | null>(null)
+  const [replaceError, setReplaceError] = useState<string | null>(null)
 
   const { data, isLoading } = useQuery({ queryKey: ['kyc', 'mine'], queryFn: listMyDocuments })
+
+  const replaceMutation = useMutation({
+    mutationFn: ({ id, file }: { id: number; file: File }) => replaceDocumentFile(id, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kyc', 'mine'] })
+      setReplaceTarget(null)
+      setReplaceError(null)
+    },
+    onError: (err) => setReplaceError(errorMessage(err)),
+  })
 
   const submitMutation = useMutation({
     mutationFn: () => submitDocuments(queue),
@@ -38,8 +60,13 @@ export function KycPage() {
     onError: (err) => setError(errorMessage(err)),
   })
 
+  function clearSelected() {
+    setSelected(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   function handleAdd() {
-    const file = fileInputRef.current?.files?.[0]
+    const file = selected
     if (!file) {
       setError('Choose a file first.')
       return
@@ -50,7 +77,7 @@ export function KycPage() {
     }
     setQueue([...queue, { file, documentType }])
     setError(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    clearSelected()
   }
 
   function handleRemove(index: number) {
@@ -74,8 +101,8 @@ export function KycPage() {
                 <Alert>{error}</Alert>
               </div>
           )}
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="w-56">
+          <div className="grid items-end gap-3 sm:grid-cols-[14rem_1fr_auto]">
+            <div>
               <Select label="Document type" value={documentType} onChange={(e) => setDocumentType(e.target.value as DocumentType)}>
                 {DOCUMENT_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -84,31 +111,58 @@ export function KycPage() {
                 ))}
               </Select>
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink">File</label>
+            <div className="space-y-1.5">
+              <label htmlFor="kyc-file" className="block text-sm font-medium text-ink">
+                File
+              </label>
+              {/* the native input is hidden, this box fills the row so the button sits at the end */}
               <input
+                  id="kyc-file"
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,application/pdf,.docx"
-                  className="block text-sm text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-royal/10 file:px-3 file:py-2 file:text-royal file:hover:bg-royal/15"
+                  accept={ACCEPTED_TYPES}
+                  onChange={(e) => setSelected(e.target.files?.[0] ?? null)}
+                  className="sr-only"
               />
+              <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl border border-dashed border-hairline bg-surface px-3 text-left text-sm transition-colors hover:border-royal/40 hover:bg-royal/[0.03]"
+              >
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-royal/10 px-2.5 py-1 font-medium text-royal">
+                  <Paperclip className="size-3.5" aria-hidden="true" />
+                  Choose file
+                </span>
+                <span className={selected ? 'truncate text-ink' : 'truncate text-muted'}>
+                  {selected ? selected.name : 'PDF, JPG, PNG or DOCX'}
+                </span>
+              </button>
             </div>
-            <Button onClick={handleAdd}>Add to list</Button>
+            <Button onClick={handleAdd} className="h-11">
+              Add to list
+            </Button>
           </div>
+
+          {selected && (
+              <div className="mt-4 max-w-md">
+                <p className="mb-1.5 text-xs font-medium text-muted">Preview</p>
+                <FilePreview file={selected} label={labelFor(documentType)} onRemove={clearSelected} />
+              </div>
+          )}
 
           {queue.length > 0 && (
               <div className="mt-4 space-y-2">
-                {queue.map((item, index) => (
-                    <div key={item.documentType} className="flex items-center justify-between gap-3 rounded-lg border border-royal/10 px-3 py-2">
-                      <div>
-                        <p className="text-sm font-medium text-ink">{labelFor(item.documentType)}</p>
-                        <p className="text-xs text-muted">{item.file.name}</p>
-                      </div>
-                      <button type="button" onClick={() => handleRemove(index)} aria-label={'Remove ' + item.file.name} className="text-muted hover:text-danger">
-                        <X className="size-4" aria-hidden="true" />
-                      </button>
-                    </div>
-                ))}
+                <p className="text-xs font-medium text-muted">Ready to submit</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {queue.map((item, index) => (
+                      <FilePreview
+                          key={item.documentType}
+                          file={item.file}
+                          label={labelFor(item.documentType)}
+                          onRemove={() => handleRemove(index)}
+                      />
+                  ))}
+                </div>
                 <Button onClick={() => submitMutation.mutate()} loading={submitMutation.isPending}>
                   Submit all ({queue.length})
                 </Button>
@@ -138,10 +192,43 @@ export function KycPage() {
                       <p className="text-sm text-muted">{doc.originalFileName}</p>
                       {doc.rejectionReason && <p className="mt-1 text-xs text-danger">Rejected: {doc.rejectionReason}</p>}
                     </div>
-                    <p className="text-xs text-muted">Submitted {formatDate(doc.submittedAt)}</p>
+                    <div className="flex flex-col items-end gap-2">
+                      <p className="text-xs text-muted">Submitted {formatDate(doc.submittedAt)}</p>
+                      <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={beingChecked(doc)}
+                          title={beingChecked(doc) ? 'Wait until the check has finished' : undefined}
+                          onClick={() => {
+                            setReplaceError(null)
+                            setReplaceTarget(doc)
+                          }}
+                      >
+                        <RefreshCw className="size-4" aria-hidden="true" />
+                        Replace file
+                      </Button>
+                    </div>
                   </Card>
               ))}
             </div>
+        )}
+
+        {replaceTarget && (
+            <ReplaceFileModal
+                title={'Replace ' + labelFor(replaceTarget.documentType)}
+                description={`Current file: ${replaceTarget.originalFileName}. The new file is checked again and goes to the admin for review.`}
+                warning={
+                  replaceTarget.status === 'APPROVED'
+                      ? 'This document is approved. A new file sends it back to review, and services that need it cannot be booked until it is approved again.'
+                      : undefined
+                }
+                accept={ACCEPTED_TYPES}
+                hint="JPEG, PNG, PDF or DOCX, up to 5 MB"
+                pending={replaceMutation.isPending}
+                error={replaceError}
+                onClose={() => setReplaceTarget(null)}
+                onSubmit={(file) => replaceMutation.mutate({ id: replaceTarget.id, file })}
+            />
         )}
       </div>
   )

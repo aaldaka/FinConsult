@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, Download, ShieldCheck } from 'lucide-react'
 import { approveDocument, downloadDocument, listDocumentsByStatus, rejectDocument } from '@/api/kyc'
-import type { DocumentType, KycStatus } from '@/api/types'
+import type { DocumentType, KycDocResponse, KycStatus } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
@@ -12,6 +12,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
+import { cn } from '@/lib/cn'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { DOCUMENT_TYPES, labelFor } from '@/lib/options'
@@ -24,6 +25,7 @@ export function KycReviewPage() {
   const [rejectTarget, setRejectTarget] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
+  const [flaggedApproveTarget, setFlaggedApproveTarget] = useState<KycDocResponse | null>(null)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['kyc', 'review', status, documentType, page],
@@ -36,9 +38,24 @@ export function KycReviewPage() {
 
   const approveMutation = useMutation({
     mutationFn: (id: number) => approveDocument(id),
-    onSuccess: invalidate,
-    onError: (err) => setActionError(errorMessage(err)),
+    onSuccess: () => {
+      invalidate()
+      setFlaggedApproveTarget(null)
+    },
+    onError: (err) => {
+      setFlaggedApproveTarget(null)
+      setActionError(errorMessage(err))
+    },
   })
+
+  function handleApprove(doc: KycDocResponse) {
+    // a flagged document needs an explicit second confirmation
+    if (doc.flagged) {
+      setFlaggedApproveTarget(doc)
+    } else {
+      approveMutation.mutate(doc.id)
+    }
+  }
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: number; reason: string }) => rejectDocument(id, reason),
@@ -117,9 +134,25 @@ export function KycReviewPage() {
       {data && data.content.length > 0 && (
         <div className="stagger space-y-2">
           {data.content.map((doc) => (
-            <Card key={doc.id} interactive className="flex flex-wrap items-center justify-between gap-3">
+            <Card
+              key={doc.id}
+              interactive
+              className={cn(
+                'flex flex-wrap items-center justify-between gap-3',
+                doc.flagged && doc.status === 'PENDING' && 'border-danger/40',
+              )}
+            >
               <div>
                 <div className="flex items-center gap-2">
+                  {doc.flagged && (
+                    <span
+                      className="flex size-6 items-center justify-center rounded-full bg-danger/10 text-danger"
+                      title={doc.flagReason ?? 'Flagged by the background check'}
+                    >
+                      <AlertTriangle className="size-3.5" aria-hidden="true" />
+                      <span className="sr-only">Flagged</span>
+                    </span>
+                  )}
                   <p className="font-medium text-ink">{doc.userEmail}</p>
                   <Badge tone={toneForStatus(doc.status)}>{doc.status}</Badge>
                   {doc.flagged && <Badge tone="danger">Flagged</Badge>}
@@ -141,7 +174,7 @@ export function KycReviewPage() {
                 </Button>
                 {doc.status === 'PENDING' && (
                   <>
-                    <Button size="sm" onClick={() => approveMutation.mutate(doc.id)} loading={approveMutation.isPending}>
+                    <Button size="sm" onClick={() => handleApprove(doc)} loading={approveMutation.isPending}>
                       Approve
                     </Button>
                     <Button size="sm" variant="danger" onClick={() => setRejectTarget(doc.id)}>
@@ -174,7 +207,7 @@ export function KycReviewPage() {
             label="Reason"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            maxLength={500}
+            maxLength={255}
             required
           />
           <div className="mt-4 flex justify-end gap-2">
@@ -188,6 +221,30 @@ export function KycReviewPage() {
               onClick={() => rejectMutation.mutate({ id: rejectTarget, reason: rejectReason })}
             >
               Reject
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {flaggedApproveTarget && (
+        <Modal className="max-w-md">
+          <h2 className="mb-1 flex items-center gap-2 font-semibold text-ink">
+            <AlertTriangle className="size-5 text-danger" aria-hidden="true" />
+            Approve a flagged document?
+          </h2>
+          <p className="mb-3 text-sm text-muted">
+            {labelFor(flaggedApproveTarget.documentType)} from {flaggedApproveTarget.userEmail} was flagged by the background
+            check. Download and check it before approving.
+          </p>
+          <div className="mb-4">
+            <Alert>{flaggedApproveTarget.flagReason ?? 'Flagged by the background check'}</Alert>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setFlaggedApproveTarget(null)}>
+              Cancel
+            </Button>
+            <Button loading={approveMutation.isPending} onClick={() => approveMutation.mutate(flaggedApproveTarget.id)}>
+              Approve anyway
             </Button>
           </div>
         </Modal>

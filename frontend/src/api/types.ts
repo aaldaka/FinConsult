@@ -29,6 +29,7 @@ export type NotificationType =
   | 'KYC_REVIEWED'
   | 'APPOINTMENT_NO_SHOW'
   | 'ADVISOR_APPLICATION_REVIEWED'
+  | 'DOCUMENT_FLAGGED'
 
 /** Shape of every error the API returns. */
 export interface ErrorResponse {
@@ -87,6 +88,12 @@ export interface AdvisorResponse {
   specialty: Specialty
   yearsOfExperience: number
   active: boolean
+}
+
+export interface UserSummaryResponse {
+  id: number
+  name: string
+  email: string
 }
 
 export interface UpdateAdvisorRequest {
@@ -232,6 +239,7 @@ export interface NotificationResponse {
 export interface AuditLogResponse {
   id: number
   actorEmail: string
+  actorName: string
   action: string
   entityType: string
   entityId: number
