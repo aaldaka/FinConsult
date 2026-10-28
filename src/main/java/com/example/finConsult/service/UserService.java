@@ -2,12 +2,14 @@ package com.example.finConsult.service;
 
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
+import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.Appointment;
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.AppointmentStatus;
 import com.example.finConsult.model.enums.AuditAction;
 import com.example.finConsult.model.enums.UserRole;
 import com.example.finConsult.model.enums.UserStatus;
+import com.example.finConsult.model.response.UserSummaryResponse;
 import com.example.finConsult.repository.AppointmentRepository;
 import com.example.finConsult.repository.UserRepository;
 import jakarta.transaction.Transactional;
@@ -28,6 +30,14 @@ public class UserService {
     private final AppointmentRepository appointmentRepository;
     private final AppointmentService appointmentService;
     private final AuditLogService auditLogService;
+    private final ResponseMapper mapper;
+
+    /** @return clients that are not deactivated, for the admin deactivate picker */
+    public List<UserSummaryResponse> getActiveClients() {
+        return userRepository.findByRoleAndUserStatusNotOrderByIdAsc(UserRole.CLIENT, UserStatus.INACTIVE).stream()
+                .map(u -> new UserSummaryResponse(u.getId(), mapper.nameOf(u), u.getEmail()))
+                .toList();
+    }
 
     /** Cascades to the client's pending/confirmed appointments via the admin cancel path, so no strike is added. */
     @Transactional

@@ -10,6 +10,7 @@ import com.example.finConsult.model.response.AdvisorResponse;
 import com.example.finConsult.model.response.AuditLogResponse;
 import com.example.finConsult.model.response.ErrorResponse;
 import com.example.finConsult.model.response.MessageResponse;
+import com.example.finConsult.model.response.UserSummaryResponse;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.AdvisorService;
 import com.example.finConsult.service.AuditLogService;
@@ -62,6 +63,18 @@ public class AdminController {
         User admin = ((MyUserDetails) userDetails).getUser();
         Advisor advisor = advisorService.createAdvisor(request, admin);
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toAdvisor(advisor));
+    }
+
+    @Operation(summary = "List clients that are not deactivated")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "List of active clients", content = @Content(schema = @Schema(implementation = UserSummaryResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not an admin", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/clients")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getActiveClients() {
+        return ResponseEntity.ok(userService.getActiveClients());
     }
 
     @Operation(summary = "Deactivate a user account and cancel their appointments")

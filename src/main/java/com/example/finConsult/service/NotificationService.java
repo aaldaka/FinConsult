@@ -53,6 +53,15 @@ public class NotificationService {
         return mapper.toNotification(notificationRepository.save(notification));
     }
 
+    /** Marks every unread notification of the user as read. @return how many were updated */
+    @Transactional
+    public int markAllAsRead(User user) {
+        List<Notification> unread = notificationRepository.findByUserAndIsReadFalse(user);
+        unread.forEach(n -> n.setRead(true));
+        notificationRepository.saveAll(unread);
+        return unread.size();
+    }
+
     /** Saves a notification and publishes an event so any open SSE connection gets it immediately. */
     @Transactional
     public Notification create(User user, NotificationType type, String message, Appointment related) {

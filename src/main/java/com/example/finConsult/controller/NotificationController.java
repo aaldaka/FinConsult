@@ -2,6 +2,7 @@ package com.example.finConsult.controller;
 
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.response.ErrorResponse;
+import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.model.response.NotificationResponse;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.NotificationService;
@@ -68,6 +69,18 @@ public class NotificationController {
                                          @Parameter(description = "ID of the notification to mark as read") @PathVariable Long id) {
         User user = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.ok(notificationService.markAsRead(id, user));
+    }
+
+    @Operation(summary = "Mark all my notifications as read")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Unread notifications marked as read", content = @Content(schema = @Schema(implementation = MessageResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PatchMapping("/mine/read-all")
+    public ResponseEntity<?> markAllAsRead(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = ((MyUserDetails) userDetails).getUser();
+        int count = notificationService.markAllAsRead(user);
+        return ResponseEntity.ok(new MessageResponse(count + " notifications marked as read"));
     }
 
     @Operation(summary = "Subscribe to real-time notifications (Server-Sent Events)")
