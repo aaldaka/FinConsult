@@ -158,10 +158,6 @@ slot = BOOKED, commit, lock released  -->  gets the lock, reads BOOKED
 
 "First" means whichever request reaches the database lock first, not who clicked first. Either way only one booking can win.
 
-<!-- screenshot to add: evidence/11-double-booking.png (two windows, one booked and one "just booked by someone else")
-![Double booking](evidence/11-double-booking.png)
--->
-
 ### Race condition 2: background check vs admin approval
 
 This race lives in the new Project 3 code.
@@ -242,10 +238,6 @@ Lookups finished after (seconds): [1, 1, 1, 1, 60, 60]
 Tests run: 147, Failures: 0, Errors: 0, Skipped: 0
 ```
 
-<!-- screenshot to add: evidence/13-rest-201-409.png (RestConcurrencyTest output with HTTP statuses: [201, 409])
-![201 and 409](evidence/13-rest-201-409.png)
--->
-
 ![All 147 test runs passing](evidence/TestsPassed.png)
 
 More screenshots and logs are in the [evidence](evidence/) folder.
@@ -307,8 +299,6 @@ I started from the data model and the booking rules rather than from the endpoin
 Security is applied at several layers. Spring Security with a stateless JWT filter protects every route except registration, login, forgot-password and email verification. Roles are enforced with `@PreAuthorize`, and ownership is checked in the services (for example, only the two parties of an appointment can cancel it). Entities are never returned directly: services return response DTOs built by one central mapper, so the password hash and internal fields never leave the API. Errors go through one global exception handler so clients always receive the same structure.
 
 In Project 3 the focus moved to what happens when two people act at the same moment. I first listed every operation where two requests can touch the same row (a slot, an appointment, a document, a strike count), then chose the cheapest protection that is still correct for each: a row lock where the loser must see the real state, a version check where conflicts are rare, an atomic SQL update for counters, and a partial unique index so the database itself refuses an invalid second row. Slow work (file checks, emails, pushes) moved to bounded thread pools that only start after the transaction commits. Each race got a test that releases several threads at once and checks the final database state.
-
-Real-time notifications are saved as `Notification` records and then pushed over Server-Sent Events. The push happens in an `AFTER_COMMIT` event listener, so a client is never told about something that was rolled back. The audit log records who did what (for example, cancellations and admin actions) in a separate table, while JPA auditing adds `createdBy` and `updatedBy` columns to the entities.
 
 ## User Stories
 
@@ -583,10 +573,6 @@ To try protected endpoints: call `POST /auth/login`, copy the `token` from the r
 * **Status codes:** booking and slot creation return `201 Created`. Every operation that can lose a race documents `409 Conflict`: booking, application submit/approve/reject, KYC upload/approve/reject, and appointment confirm/cancel/no-show/excuse.
 * **New rules:** approving an application while a certificate is `PROCESSING` returns `400`; requests from blacklisted or deactivated users are no longer authenticated, so they are rejected on their next request, even with a valid token.
 * **SSE:** `/notifications/stream` also accepts the JWT as a `?token=` query parameter, because the browser's `EventSource` cannot send headers. Only this endpoint accepts it.
-
-<!-- screenshot to add: evidence/17-swagger-409.png (Swagger UI showing the 201 and 409 responses of the booking endpoint)
-![Swagger booking responses](evidence/17-swagger-409.png)
--->
 
 ### Error responses
 
