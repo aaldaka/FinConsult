@@ -16,7 +16,9 @@ import org.springframework.context.annotation.Configuration;
         info = @Info(
                 title = "FinConsult API",
                 version = "1.0",
-                description = "Financial consultation booking platform: advisors, availability slots, appointments, KYC and notifications"),
+                description = "Financial consultation booking platform: advisors, availability slots, appointments, KYC, advisor applications and real-time notifications. "
+                        + "Operations that two users can trigger at the same time return 409 Conflict when they lose the race. "
+                        + "Uploaded documents and certificates are checked in the background."),
         security = @SecurityRequirement(name = "bearerAuth"))
 @SecurityScheme(
         name = "bearerAuth",
