@@ -55,6 +55,7 @@ public class KycService {
         return doc;
     }
 
+    /** Saves one document as PENDING and checks it in the background after the commit. */
     @Transactional
     public KycDocResponse submit(User user, MultipartFile file, DocumentType type) {
         KycDocument doc = saveDocument(user, file, type);
@@ -62,6 +63,7 @@ public class KycService {
         return mapper.toKyc(doc);
     }
 
+    /** Saves several documents (one per type) in one transaction, then checks them in parallel after the commit. */
     @Transactional
     public List<KycDocResponse> submitAll(User user, List<MultipartFile> files, List<DocumentType> types) {
         if (files == null || files.isEmpty() || types == null || files.size() != types.size()) {
@@ -188,6 +190,10 @@ public class KycService {
         return docs.map(mapper::toKycForAdmin);
     }
 
+    /**
+     * Approves a pending document. {@code @Version} on the document makes a concurrent review or a
+     * background check that saved in the meantime fail with a conflict instead of being overwritten.
+     */
     @Transactional
     public KycDocResponse approve(Long id, User admin) {
         KycDocument doc = findPending(id);

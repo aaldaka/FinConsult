@@ -20,6 +20,7 @@ public class AppointmentCompletionJob {
 
     private final AppointmentRepository appointmentRepository;
 
+    /** Marks CONFIRMED appointments whose slot has ended as COMPLETED. */
     @Scheduled(fixedRate = 15 * 60 * 1000L) // 15 mins
     @Transactional
     public void completeFinishedAppointments() {

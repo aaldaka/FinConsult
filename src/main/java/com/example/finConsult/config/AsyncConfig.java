@@ -15,6 +15,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 @EnableAsync
 public class AsyncConfig {
 
+    /** Pool for the background document checks (file type, hash, duplicates, VirusTotal lookup). */
     @Bean("docExecutor")
     public ThreadPoolTaskExecutor docExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
@@ -27,6 +28,7 @@ public class AsyncConfig {
         return executor;
     }
 
+    /** Pool for sending emails so a request never waits on the mail server. */
     @Bean("mailExecutor")
     public ThreadPoolTaskExecutor mailExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
@@ -39,6 +41,7 @@ public class AsyncConfig {
         return executor;
     }
 
+    /** Pool for pushing notifications to open SSE connections after the transaction commits. */
     @Bean("notificationExecutor")
     public ThreadPoolTaskExecutor notificationExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
