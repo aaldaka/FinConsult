@@ -3,6 +3,7 @@ package com.example.finConsult.service;
 import com.example.finConsult.exception.InformationNotFound;
 import com.example.finConsult.exception.InvalidRequest;
 import com.example.finConsult.exception.SlotUnavailable;
+import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.*;
 import com.example.finConsult.repository.*;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
 
@@ -27,6 +29,7 @@ public class AppointmentService {
     private static final int CANCELLATION_STRIKE_WINDOW_HOURS = 24;
     private static final int LATE_CANCEL_RELEASE_CUTOFF_HOURS = 6;
     private static final Set<String> SORTABLE = Set.of("createdAt", "status", "slot.startTime");
+    private static final DateTimeFormatter SLOT_TIME = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm");
 
     private final AppointmentRepository appointmentRepository;
     private final AvailabilitySlotRepository availabilitySlotRepository;
@@ -36,6 +39,12 @@ public class AppointmentService {
     private final AuditLogService auditLogService;
     private final KycDocumentRepository kycDocumentRepository;
     private final NotificationService notificationService;
+    private final ResponseMapper mapper;
+
+    // when the appointment starts, for notification and audit messages
+    private String slotTime(Appointment appointment) {
+        return appointment.getSlot().getStartTime().format(SLOT_TIME);
+    }
 
     /** Rejects sort fields outside the allow-list so callers can't sort on an unindexed or sensitive column. */
     private void checkSort(Sort sort) { //validation
@@ -98,11 +107,13 @@ public class AppointmentService {
         availabilitySlotRepository.save(slot);
 
         // an advisor gets notified so they can confirm their availability for the booked slot
+        String clientName = mapper.nameOf(client);
         notificationService.create(slot.getAdvisor().getUser(), NotificationType.APPOINTMENT_BOOKED,
-                "Client: " + client.getId() + " has booked an appointment. Pending your confirmation.", appointment);
+                clientName + " booked " + serviceType.getName() + " on " + slotTime(appointment) + ". Pending your confirmation.", appointment);
 
         auditLogService.log(client, AuditAction.APPOINTMENT_BOOKED, "Appointment", appointment.getId(),
-                "User " + client.getId() + " booked appointment " + appointment.getId());
+                clientName + " booked " + serviceType.getName() + " with " + mapper.nameOf(slot.getAdvisor().getUser())
+                        + " on " + slotTime(appointment));
 
         log.info("Appointment {} booked by client {} with advisor {}", appointment.getId(), client.getId(), slot.getAdvisor().getId());
         return appointment;
@@ -123,11 +134,14 @@ public class AppointmentService {
         }
 
         appointment.setStatus(AppointmentStatus.CONFIRMED);
+        String advisorName = mapper.nameOf(appointment.getAdvisor().getUser());
         notificationService.create(appointment.getClient(), NotificationType.APPOINTMENT_CONFIRMED,
-                "Your appointment has been confirmed!", appointment);
+                advisorName + " confirmed your " + appointment.getServiceType().getName() + " appointment on "
+                        + slotTime(appointment) + ".", appointment);
 
         auditLogService.log(appointment.getAdvisor().getUser(), AuditAction.APPOINTMENT_CONFIRMED,
-                "Appointment", appointmentId, "User " + appointment.getAdvisor().getUser().getId() + " confirmed appointment " + appointmentId);
+                "Appointment", appointmentId, advisorName + " confirmed the appointment with "
+                        + mapper.nameOf(appointment.getClient()) + " on " + slotTime(appointment));
 
         log.info("Appointment {} confirmed by advisor {}", appointmentId, advisorId);
         return appointmentRepository.save(appointment);
@@ -184,13 +198,13 @@ public class AppointmentService {
 
             if (newlyBlacklisted) {
                 auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
-                        "User " + client.getId() + " blacklisted after reaching " + strikes + " strikes");
+                        mapper.nameOf(client) + " blacklisted after reaching " + strikes + " strikes");
                 log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), strikes);
             }
 
             notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
-                    "You cancelled your: " + appointmentId + " appointment less than the acceptable 24 Hour window. Your strikes are: "
-                            + strikes + " /3", appointment);
+                    "You cancelled your appointment on " + slotTime(appointment)
+                            + " less than 24 hours before it started. Strikes: " + strikes + "/3", appointment);
         }
 
         appointment.setCancellationReason(reason);
@@ -208,7 +222,7 @@ public class AppointmentService {
 
         User whoToNotify = isClient ? appointment.getAdvisor().getUser() : appointment.getClient(); //notify the other party of the cancellation
         notificationService.create(whoToNotify, NotificationType.APPOINTMENT_CANCELLED,
-                "The appointment with ID: " + appointmentId + " has been cancelled due to: " + reason, appointment);
+                mapper.nameOf(cancelledBy) + " cancelled the appointment on " + slotTime(appointment) + ". Reason: " + reason, appointment);
     }
 
     public List<Appointment> getClientAppointments(User client, AppointmentStatus status, Sort sortBy) {
@@ -250,19 +264,20 @@ public class AppointmentService {
         boolean newlyBlacklisted = strikes == 3;
 
         auditLogService.log(appointment.getAdvisor().getUser(), AuditAction.APPOINTMENT_NO_SHOW,
-                "Appointment", appointmentId, "Marked no-show; client strikes: " + strikes);
+                "Appointment", appointmentId, "Marked " + mapper.nameOf(client) + " as a no-show for "
+                        + slotTime(appointment) + "; strikes: " + strikes + "/3");
 
         log.info("Appointment {} marked no-show by advisor {}", appointmentId, advisorId);
         log.info("Strike added to client {} (now {} strikes)", client.getId(), strikes);
         if (newlyBlacklisted) {
             auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
-                    "User " + client.getId() + " blacklisted after reaching " + strikes + " strikes");
+                    mapper.nameOf(client) + " blacklisted after reaching " + strikes + " strikes");
             log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), strikes);
         }
 
         notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
-                "You were marked as No Show for your: " + appointmentId + " appointment. Your strikes are: "
-                        + strikes + " /3", appointment);
+                "You were marked as a no-show for your appointment on " + slotTime(appointment)
+                        + ". Strikes: " + strikes + "/3", appointment);
 
         return appointment;
     }
@@ -291,12 +306,12 @@ public class AppointmentService {
         int strikes = userRepository.removeStrike(client.getId());
 
         auditLogService.log(admin, AuditAction.NO_SHOW_EXCUSED, "Appointment", appointmentId,
-                "No show excused: " + reason + "; client strikes: " + strikes);
+                "Excused " + mapper.nameOf(client) + "'s no-show: " + reason + "; strikes: " + strikes + "/3");
 
         log.info("No-show excused for appointment {} by admin {}", appointmentId, admin.getId());
 
         notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
-                "Your No Show was excused. Reason: " + reason, appointment);
+                "Your no-show was excused. Reason: " + reason, appointment);
 
         return appointmentRepository.save(appointment);
     }
@@ -329,6 +344,12 @@ public class AppointmentService {
         log.info("Appointment {} cancelled by admin {}", appointmentId, admin.getId());
 
         notificationService.create(appointment.getAdvisor().getUser(), NotificationType.APPOINTMENT_CANCELLED,
-                "The appointment with ID: " + appointmentId + " has been cancelled due to: " + reason, appointment);
+                "Your appointment with " + mapper.nameOf(appointment.getClient()) + " on " + slotTime(appointment)
+                        + " was cancelled. Reason: " + reason, appointment);
+    }
+
+    /** All no-show appointments for the admin review, latest first, excused ones included. */
+    public List<Appointment> getNoShows() {
+        return appointmentRepository.findByStatus(AppointmentStatus.NO_SHOW, Sort.by("slot.startTime").descending());
     }
 }

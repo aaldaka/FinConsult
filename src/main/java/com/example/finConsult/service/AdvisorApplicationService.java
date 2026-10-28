@@ -130,7 +130,7 @@ public class AdvisorApplicationService {
         });
 
         auditLogService.log(applicant, AuditAction.ADVISOR_APPLICATION_SUBMITTED, "AdvisorApplication",
-                application.getId(), "Applied to become an advisor");
+                application.getId(), mapper.nameOf(applicant) + " applied to become an advisor");
         log.info("Advisor application {} submitted by user {}", application.getId(), applicant.getId());
 
         return mapper.toApplication(application, certificateRepository.findByApplication(application));
@@ -185,7 +185,7 @@ public class AdvisorApplicationService {
         notificationService.create(applicant, NotificationType.ADVISOR_APPLICATION_REVIEWED,
                 "Your advisor application was approved. Log in again to use your advisor account.", null);
         auditLogService.log(admin, AuditAction.ADVISOR_APPLICATION_APPROVED, "AdvisorApplication", id,
-                "Approved advisor application for user " + applicant.getId());
+                "Approved the advisor application of " + mapper.nameOf(applicant));
         log.info("Advisor application {} approved by admin {}; user {} promoted to advisor",
                 id, admin.getId(), applicant.getId());
 
@@ -209,7 +209,7 @@ public class AdvisorApplicationService {
         notificationService.create(application.getUser(), NotificationType.ADVISOR_APPLICATION_REVIEWED,
                 "Your advisor application was rejected. Reason: " + reason, null);
         auditLogService.log(admin, AuditAction.ADVISOR_APPLICATION_REJECTED, "AdvisorApplication", id,
-                "Rejected advisor application for user " + application.getUser().getId());
+                "Rejected the advisor application of " + mapper.nameOf(application.getUser()));
         log.info("Advisor application {} rejected by admin {}", id, admin.getId());
 
         return mapper.toApplication(application, certificateRepository.findByApplication(application));
@@ -222,6 +222,58 @@ public class AdvisorApplicationService {
 
     public Resource loadCertificate(ApplicationCertificate certificate) {
         return fileStorageService.load(certificate.getFilePath());
+    }
+
+    /**
+     * Applicant uploads a new file for one certificate of a pending application. The certificate
+     * goes back to PROCESSING and is checked again after the commit.
+     */
+    @Transactional
+    public AdvisorApplicationResponse replaceCertificate(User applicant, Long certificateId, MultipartFile file) {
+        ApplicationCertificate certificate = getCertificate(certificateId);
+        if (!certificate.getApplication().getUser().getId().equals(applicant.getId())) {
+            throw new InvalidRequest("This is not your certificate");
+        }
+        // an admin approving or rejecting at the same moment gets a version conflict instead of reviewing a changing application
+        AdvisorApplication application = applicationRepository.findLockedById(certificate.getApplication().getId())
+                .orElseThrow(() -> new InformationNotFound("Application not found"));
+        if (application.getStatus() != KycStatus.PENDING) {
+            throw new InvalidRequest("Only certificates of a pending application can be replaced");
+        }
+        // the running check would save the old file's result onto the new file
+        if (certificate.getStatus() == CertificateStatus.PROCESSING) {
+            throw new InvalidRequest("This certificate is still being checked, try again in a moment");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new InvalidRequest("A certificate file is required");
+        }
+        if (file.getContentType() == null || !ALLOWED_CERTIFICATE_TYPES.contains(file.getContentType())) {
+            throw new InvalidRequest("Certificates must be PDF, JPG or PNG files");
+        }
+
+        certificate.setFilePath(fileStorageService.store(file, "advisor_applications"));
+        certificate.setOriginalFileName(file.getOriginalFilename());
+        certificate.setContentType(file.getContentType());
+        certificate.setFileSize(file.getSize());
+        certificate.setStatus(CertificateStatus.PROCESSING);
+        certificate.setDetectedType(null);
+        certificate.setSha256(null);
+        certificateRepository.save(certificate);
+
+        Long applicationId = application.getId();
+        Long applicantId = applicant.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                certificateProcessor.processAll(applicationId, applicantId, List.of(certificateId));
+            }
+        });
+
+        auditLogService.log(applicant, AuditAction.CERTIFICATE_REPLACED, "ApplicationCertificate", certificateId,
+                mapper.nameOf(applicant) + " uploaded a new file for a certificate in application " + applicationId);
+        log.info("Certificate {} of application {} replaced by user {}", certificateId, applicationId, applicantId);
+
+        return mapper.toApplication(application, certificateRepository.findByApplication(application));
     }
 
     private AdvisorApplication findPending(Long id) {

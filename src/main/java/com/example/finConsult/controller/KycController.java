@@ -63,6 +63,24 @@ public class KycController {
                 .body(kycService.submit(user, file, documentType));
     }
 
+    @Operation(summary = "Client uploads a new file for one of their documents, which goes back to pending review")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "File replaced, document pending review and being checked", content = @Content(schema = @Schema(implementation = KycDocResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Not your document, still being checked, invalid file, or another pending document of this type exists", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not a client", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Document not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Changed by someone else at the same moment, refresh and try again", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PutMapping(value = "/{id}/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<KycDocResponse> replaceFile(@Parameter(description = "ID of the document to replace") @PathVariable Long id,
+                                                      @RequestPart("file") MultipartFile file,
+                                                      @AuthenticationPrincipal UserDetails userDetails) {
+        User user = ((MyUserDetails) userDetails).getUser();
+        return ResponseEntity.ok(kycService.replaceFile(user, id, file));
+    }
+
     @Operation(summary = "List my KYC documents")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "List of the caller's KYC documents", content = @Content(schema = @Schema(implementation = KycDocResponse.class))),

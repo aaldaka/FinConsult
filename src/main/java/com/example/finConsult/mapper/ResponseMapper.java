@@ -47,7 +47,8 @@ public class ResponseMapper {
 
     public AuditLogResponse toAuditLog(AuditLog entry) {
         String actor = entry.getActor() != null ? entry.getActor().getEmail() : "SYSTEM";
-        return new AuditLogResponse(entry.getId(), actor, entry.getAction(), entry.getEntityType(),
+        String actorName = entry.getActor() != null ? nameOf(entry.getActor()) : "System";
+        return new AuditLogResponse(entry.getId(), actor, actorName, entry.getAction(), entry.getEntityType(),
                 entry.getEntityId(), entry.getDetails(), entry.getTimestamp());
     }
 
@@ -58,7 +59,8 @@ public class ResponseMapper {
                 notif.getCreatedAt());
     }
 
-    private String nameOf(User user) {
+    // full name from the profile, used in responses and in notification/audit messages
+    public String nameOf(User user) {
         return profileRepository.findByUser(user)
                 .map(p -> p.getFirstName() + " " + p.getLastName())
                 .orElse("Unknown");

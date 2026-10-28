@@ -19,5 +19,6 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     List<Appointment> findByClientAndStatus(User client, AppointmentStatus status, Sort sort);
     List<Appointment> findByAdvisor(Advisor advisor, Sort sort);
     List<Appointment> findByAdvisorAndStatus(Advisor advisor, AppointmentStatus status, Sort sort);
+    List<Appointment> findByStatus(AppointmentStatus status, Sort sort);
     List<Appointment> findByStatusAndSlot_EndTimeBefore(AppointmentStatus status, LocalDateTime cutoff);
 }

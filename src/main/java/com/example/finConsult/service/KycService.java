@@ -90,12 +90,9 @@ public class KycService {
         });
     }
 
-    private KycDocument saveDocument(User user, MultipartFile file, DocumentType type) {
+    private void validateFile(User user, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new InvalidRequest("A file is required");
-        }
-        if (type == null) {
-            throw new InvalidRequest("Document type is required");
         }
         if (file.getSize() > MAX_FILE_SIZE_BYTES) {
             log.warn("KYC upload rejected: file too large for user {}", user.getId());
@@ -106,6 +103,17 @@ public class KycService {
             log.warn("KYC upload rejected: unsupported type for user {}", user.getId());
             throw new InvalidRequest("Only JPEG, PNG, DOCX or PDF files are allowed");
         }
+    }
+
+    private KycDocument saveDocument(User user, MultipartFile file, DocumentType type) {
+        if (file == null || file.isEmpty()) {
+            throw new InvalidRequest("A file is required");
+        }
+        if (type == null) {
+            throw new InvalidRequest("Document type is required");
+        }
+        validateFile(user, file);
+        String contentType = file.getContentType();
 
         // no spam uploading
         if (kycDocumentRepository.existsByUserAndDocumentTypeAndStatus(user, type, KycStatus.PENDING)) {
@@ -123,9 +131,50 @@ public class KycService {
         doc = kycDocumentRepository.save(doc);   // status defaults to PENDING
 
         auditLogService.log(user, AuditAction.KYC_SUBMITTED, "KycDocument", doc.getId(),
-                "Submitted " + type);
+                mapper.nameOf(user) + " submitted a " + type + " document");
         log.info("KYC document {} submitted by user {}", doc.getId(), user.getId());
         return doc;
+    }
+
+    /**
+     * Client uploads a new file for one of their documents. It goes back to PENDING with the
+     * review and check results cleared, and is checked again after the commit.
+     */
+    @Transactional
+    public KycDocResponse replaceFile(User user, Long id, MultipartFile file) {
+        KycDocument doc = getDocument(id);
+        if (!doc.getUser().getId().equals(user.getId())) {
+            throw new InvalidRequest("This is not your document");
+        }
+        // the running check would save the old file's result onto the new file
+        if (doc.getStatus() == KycStatus.PENDING && doc.getDetectedType() == null && doc.getFlagReason() == null) {
+            throw new InvalidRequest("This document is still being checked, try again in a moment");
+        }
+        if (doc.getStatus() != KycStatus.PENDING
+                && kycDocumentRepository.existsByUserAndDocumentTypeAndStatus(user, doc.getDocumentType(), KycStatus.PENDING)) {
+            throw new InvalidRequest("You already have a pending " + doc.getDocumentType() + " document, replace that one instead");
+        }
+        validateFile(user, file);
+
+        doc.setFilePath(fileStorageService.store(file, "kyc_documents"));
+        doc.setOriginalFileName(file.getOriginalFilename());
+        doc.setContentType(file.getContentType());
+        doc.setFileSize(file.getSize());
+        doc.setStatus(KycStatus.PENDING);
+        doc.setReviewedBy(null);
+        doc.setReviewedAt(null);
+        doc.setRejectionReason(null);
+        doc.setDetectedType(null);
+        doc.setSha256(null);
+        doc.setFlagReason(null);
+        doc = kycDocumentRepository.save(doc);   // @Version: an admin reviewing it at the same moment gets a 409
+
+        auditLogService.log(user, AuditAction.KYC_RESUBMITTED, "KycDocument", id,
+                mapper.nameOf(user) + " uploaded a new " + doc.getDocumentType() + " file");
+        log.info("KYC document {} replaced by user {}", id, user.getId());
+
+        checkAfterCommit(user.getId(), List.of(id));
+        return mapper.toKyc(doc);
     }
 
     public List<KycDocResponse> getMyDocuments(User user) {
@@ -151,7 +200,7 @@ public class KycService {
                 "Your " + doc.getDocumentType() + " document has been approved.", null);
 
         auditLogService.log(admin, AuditAction.KYC_APPROVED, "KycDocument", id,
-                "Approved " + doc.getDocumentType() + " for " + doc.getUser().getEmail());
+                "Approved " + doc.getDocumentType() + " for " + mapper.nameOf(doc.getUser()));
         log.info("KYC document {} approved by admin {}", id, admin.getId());
         return mapper.toKycForAdmin(doc);
     }
@@ -173,7 +222,7 @@ public class KycService {
                 "Your " + doc.getDocumentType() + " document was rejected. Reason: " + reason, null);
 
         auditLogService.log(admin, AuditAction.KYC_REJECTED, "KycDocument", id,
-                "Rejected " + doc.getDocumentType() + " for " + doc.getUser().getEmail());
+                "Rejected " + doc.getDocumentType() + " for " + mapper.nameOf(doc.getUser()));
         log.info("KYC document {} rejected by admin {}", id, admin.getId());
         return mapper.toKycForAdmin(doc);
     }

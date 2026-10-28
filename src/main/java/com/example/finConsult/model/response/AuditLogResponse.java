@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 public class AuditLogResponse { //avoids leaking user info, just IDs
     private Long id;
     private String actorEmail;   //"SYSTEM" if actor is null
+    private String actorName;    //"System" if actor is null
     private String action;
     private String entityType;
     private Long entityId;

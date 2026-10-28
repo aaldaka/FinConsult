@@ -1,6 +1,7 @@
 package com.example.finConsult.service;
 
 import com.example.finConsult.exception.InformationNotFound;
+import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.AdvisorApplication;
 import com.example.finConsult.model.ApplicationCertificate;
 import com.example.finConsult.model.KycDocument;
@@ -45,9 +46,11 @@ public class DocumentProcessor {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final VirusTotalService virusTotalService;
+    private final ResponseMapper mapper;
 
     public DocumentProcessor(ApplicationCertificateRepository certificateRepository, KycDocumentRepository kycDocumentRepository, FileStorageService fileStorageService, NotificationStreamService streamService,
-                             @Qualifier("docExecutor") Executor executor, UserRepository userRepository, NotificationService notificationService, VirusTotalService virusTotalService) {
+                             @Qualifier("docExecutor") Executor executor, UserRepository userRepository, NotificationService notificationService, VirusTotalService virusTotalService,
+                             ResponseMapper mapper) {
         this.certificateRepository = certificateRepository;
         this.kycDocumentRepository = kycDocumentRepository;
         this.fileStorageService = fileStorageService;
@@ -56,6 +59,11 @@ public class DocumentProcessor {
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.virusTotalService = virusTotalService;
+        this.mapper = mapper;
+    }
+
+    private String nameOf(Long userId) {
+        return userRepository.findById(userId).map(mapper::nameOf).orElse("user " + userId);
     }
 
     /** One task per document on the pool, when all are done the client gets a KYC_CHECKED event. */
@@ -75,7 +83,7 @@ public class DocumentProcessor {
                             .filter(d -> d.getFlagReason() != null)
                             .count();
                     if (flagged > 0) {
-                        notifyAdmins(flagged + " KYC document(s) from user " + userId
+                        notifyAdmins(flagged + " KYC document(s) from " + nameOf(userId)
                                 + " were flagged. A review is needed");
                     }
                 })
@@ -130,7 +138,7 @@ public class DocumentProcessor {
                             .filter(c -> c.getStatus() == CertificateStatus.FLAGGED)
                             .count();
                     if (flagged > 0) {
-                        notifyAdmins(flagged + " certificate(s) in advisor application " + applicationId
+                        notifyAdmins(flagged + " certificate(s) in the advisor application of " + nameOf(applicantId)
                                 + " were flagged. A review is required");
                     }
                 })

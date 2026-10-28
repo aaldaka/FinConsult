@@ -2,6 +2,7 @@ package com.example.finConsult.service;
 
 import com.example.finConsult.exception.InvalidRequest;
 import com.example.finConsult.exception.SlotUnavailable;
+import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.*;
 import com.example.finConsult.repository.*;
@@ -29,7 +30,7 @@ class AppointmentServiceTest {
     @Mock AuditLogService auditLogService;
     @Mock KycDocumentRepository kycDocumentRepository;
     @Mock NotificationService notificationService;
-
+    @Mock ResponseMapper mapper;
 
     @InjectMocks AppointmentService appointmentService;
 

@@ -133,6 +133,25 @@ public class AdvisorApplicationController {
         return ResponseEntity.ok(applicationService.reject(id, request.getReason(), admin));
     }
 
+    @Operation(summary = "Applicant uploads a new file for a certificate of their pending application")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Certificate replaced and being checked again", content = @Content(schema = @Schema(implementation = AdvisorApplicationResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Not your certificate, application not pending, still being checked, or not a PDF/JPG/PNG file", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not a client", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Certificate not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "Changed by someone else at the same moment, refresh and try again", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PutMapping(value = "/certificates/{certificateId}/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<AdvisorApplicationResponse> replaceCertificate(
+            @Parameter(description = "ID of the certificate to replace") @PathVariable Long certificateId,
+            @RequestPart("file") MultipartFile file,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User applicant = ((MyUserDetails) userDetails).getUser();
+        return ResponseEntity.ok(applicationService.replaceCertificate(applicant, certificateId, file));
+    }
+
     @Operation(summary = "Admin downloads a certificate file")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "File stream of the stored certificate"),

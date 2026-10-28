@@ -33,6 +33,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * Appointment lifecycle endpoints: booking, advisor confirmation, cancellation,
  * listing, no-show marking and no-show excusal.
@@ -123,6 +125,18 @@ public class AppointmentController { // patch to partially update things instead
             return ResponseEntity.ok(appointmentService.getClientAppointments(user, status, sortBy)
                     .stream().map(mapper::toAppointment).toList());
         }
+    }
+
+    @Operation(summary = "Admin lists every no-show appointment, latest first, so one can be excused")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "No-show appointments, excused ones included", content = @Content(schema = @Schema(implementation = AppointmentResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not an admin", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/no-shows")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<AppointmentResponse>> getNoShows() {
+        return ResponseEntity.ok(appointmentService.getNoShows().stream().map(mapper::toAppointment).toList());
     }
 
     @Operation(summary = "Advisor marks a client as a no-show")
