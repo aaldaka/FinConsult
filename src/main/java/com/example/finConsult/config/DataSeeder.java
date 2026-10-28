@@ -10,6 +10,9 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -18,7 +21,8 @@ import java.util.Comparator;
 /**
  * Populates an empty development database with demo data: service types, an admin,
  * one advisor per specialty (two for GENERAL), clients, availability slots,
- * approved KYC documents for one client and a few sample appointments.
+ * approved KYC documents for one client, a few sample appointments, and advisor
+ * applications plus a flagged KYC document for the Project 3 review flows.
  * <p>
  * Every step checks for existing data first, so restarting the app never creates duplicates.
  * Runs only under the {@code dev} profile. All seeded accounts use the same dev-only password.
@@ -38,6 +42,8 @@ public class DataSeeder implements CommandLineRunner {
     private final AvailabilitySlotRepository slotRepository;
     private final AppointmentRepository appointmentRepository;
     private final KycDocumentRepository kycDocumentRepository;
+    private final AdvisorApplicationRepository applicationRepository;
+    private final ApplicationCertificateRepository certificateRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -74,10 +80,14 @@ public class DataSeeder implements CommandLineRunner {
         User maryam = seedUser("maryam.alhammadi@example.com", UserRole.CLIENT, "Maryam", "Al-Hammadi", "+97333000011");
         User hamad = seedUser("hamad.alansari@example.com", UserRole.CLIENT, "Hamad", "Al-Ansari", "+97333000012");
         User hessa = seedUser("hessa.albinali@example.com", UserRole.CLIENT, "Hessa", "Al-Binali", "+97333000013");
-        seedUser("salman.alderazi@example.com", UserRole.CLIENT, "Salman", "Al-Derazi", "+97333000014");
+        User salman = seedUser("salman.alderazi@example.com", UserRole.CLIENT, "Salman", "Al-Derazi", "+97333000014");
 
         // Maryam is the demo client with approved KYC so she can book the KYC-gated services
         seedKycDocuments(maryam, admin);
+
+        // demo data for the Project 3 flows: applications to review and a flagged KYC document
+        seedAdvisorApplications(hessa, salman, hamad, admin);
+        seedFlaggedKyc(salman);
 
         for (Advisor advisor : advisorRepository.findAll()) {
             seedSlots(advisor);
@@ -85,9 +95,9 @@ public class DataSeeder implements CommandLineRunner {
 
         seedAppointments(maryam, hamad, hessa, reem, nasser, samar, general, investment, insurance);
 
-        log.info("Data seeding complete: {} service types, {} advisors, {} users, {} slots, {} appointments",
+        log.info("Data seeding complete: {} service types, {} advisors, {} users, {} slots, {} appointments, {} advisor applications",
                 serviceTypeRepository.count(), advisorRepository.count(), userRepository.count(),
-                slotRepository.count(), appointmentRepository.count());
+                slotRepository.count(), appointmentRepository.count(), applicationRepository.count());
     }
 
     private ServiceType seedService(String name, String description, int minutes,
@@ -156,6 +166,91 @@ public class DataSeeder implements CommandLineRunner {
             doc.setReviewedAt(LocalDateTime.now());
             kycDocumentRepository.save(doc);
         }
+    }
+
+    /** Demo advisor applications: one ready to approve, one with a flagged certificate, one already rejected. */
+    private void seedAdvisorApplications(User hessa, User salman, User hamad, User admin) {
+        // ready to approve live: both certificates passed the background checks
+        if (applicationRepository.findByUser(hessa).isEmpty()) {
+            AdvisorApplication ready = seedApplication(hessa, "Retirement Planner", Specialty.RETIREMENT_PLANNING, 4,
+                    KycStatus.PENDING, null, null);
+            seedCertificate(ready, "hessa-cfa-level-1.pdf", CertificateStatus.VALID);
+            seedCertificate(ready, "hessa-banking-diploma.pdf", CertificateStatus.VALID);
+        }
+
+        // needs a closer look: one certificate was flagged by the background check
+        if (applicationRepository.findByUser(salman).isEmpty()) {
+            AdvisorApplication flagged = seedApplication(salman, "Insurance Advisor", Specialty.INSURANCE, 2,
+                    KycStatus.PENDING, null, null);
+            seedCertificate(flagged, "salman-insurance-license.pdf", CertificateStatus.VALID);
+            seedCertificate(flagged, "salman-certificate-copy.pdf", CertificateStatus.FLAGGED);
+        }
+
+        // history: an earlier application that was rejected, counts as 1 of the 3 attempts
+        if (applicationRepository.findByUser(hamad).isEmpty()) {
+            seedApplication(hamad, "Loan Officer", Specialty.LOANS, 1,
+                    KycStatus.REJECTED, admin, "Needs at least 2 years of experience");
+        }
+    }
+
+    private AdvisorApplication seedApplication(User applicant, String title, Specialty specialty, int years,
+                                               KycStatus status, User reviewer, String rejectionReason) {
+        AdvisorApplication application = new AdvisorApplication();
+        application.setUser(applicant);
+        application.setTitle(title);
+        application.setSpecialty(specialty);
+        application.setYearsOfExperience(years);
+        application.setStatus(status);
+        if (reviewer != null) {
+            application.setReviewedBy(reviewer);
+            application.setReviewedAt(LocalDateTime.now().minusDays(5));
+            application.setRejectionReason(rejectionReason);
+        }
+        return applicationRepository.save(application);
+    }
+
+    private void seedCertificate(AdvisorApplication application, String fileName, CertificateStatus status) {
+        ApplicationCertificate certificate = new ApplicationCertificate();
+        certificate.setApplication(application);
+        certificate.setFilePath(writeSeedFile("advisor_applications", fileName));
+        certificate.setOriginalFileName(fileName);
+        certificate.setContentType("application/pdf");
+        certificate.setFileSize(0);
+        certificate.setStatus(status);
+        certificate.setDetectedType("PDF");
+        certificateRepository.save(certificate);
+    }
+
+    /** A pending KYC document already flagged by the check, so the admin review shows the flag reason. */
+    private void seedFlaggedKyc(User client) {
+        if (!kycDocumentRepository.findByUser(client).isEmpty()) {
+            return;
+        }
+        KycDocument doc = new KycDocument();
+        doc.setUser(client);
+        doc.setDocumentType(DocumentType.PASSPORT);
+        doc.setFilePath(writeSeedFile("kyc_documents", "salman-passport.pdf"));
+        doc.setOriginalFileName("salman-passport.pdf");
+        doc.setContentType("application/pdf");
+        doc.setFileSize(0);
+        doc.setStatus(KycStatus.PENDING);
+        doc.setDetectedType("PDF");
+        doc.setFlagReason("Same file was uploaded by another account");
+        kycDocumentRepository.save(doc);
+    }
+
+    // writes a small placeholder file under uploads/ so the admin download link works
+    private String writeSeedFile(String folder, String fileName) {
+        Path file = Path.of("uploads", folder, "seed-" + fileName);
+        try {
+            Files.createDirectories(file.getParent());
+            if (!Files.exists(file)) {
+                Files.writeString(file, "%PDF-1.4 seed file " + fileName);
+            }
+        } catch (IOException e) {
+            log.warn("Could not write seed file {}", file);
+        }
+        return "/uploads/" + folder + "/seed-" + fileName;
     }
 
     /** Creates hourly slots for the next five working days (Sunday to Thursday, the Bahrain work week). */

@@ -59,6 +59,32 @@ class KycConcurrencyTest extends ConcurrencyTestSupport {
         assertEquals("abc123", result.getSha256());
     }
 
+    // the admin approves before the FIRST save (the hash save): that save takes the conflict,
+    // so the final save with the flag goes through without one and must still send it back to review
+    @Test
+    void approvedBeforeTheHashSaveAndThenFlaggedGoesBackToPending() {
+        User client = newClient();
+        KycDocument saved = kycDocumentRepository.save(newKycDocument(client, DocumentType.PASSPORT, KycStatus.PENDING, "/uploads/none.pdf"));
+        Long id = saved.getId();
+
+        KycDocument staleCopy = kycDocumentRepository.findById(id).orElseThrow();   // what the worker loaded
+        kycService.approve(id, admin());                                             // the admin approves meanwhile
+
+        staleCopy.setDetectedType("PDF");
+        staleCopy.setSha256("ghi789");
+        KycDocument afterHashSave = documentProcessor.saveCheckResult(id, staleCopy); // first save, no flag yet
+        assertEquals(KycStatus.APPROVED, afterHashSave.getStatus(), "no flag yet, the approval stays");
+
+        afterHashSave.setFlagReason("Matches malware");                              // the check flags it
+        documentProcessor.saveCheckResult(id, afterHashSave);                         // final save, no conflict this time
+
+        KycDocument result = kycDocumentRepository.findById(id).orElseThrow();
+        assertEquals(KycStatus.PENDING, result.getStatus(), "approved but flagged: back to review");
+        assertNull(result.getReviewedBy());
+        assertNull(result.getReviewedAt());
+        assertEquals("Matches malware", result.getFlagReason());
+    }
+
     // same race, but the check found nothing: the approval stays and the type/hash are added
     @Test
     void cleanDocumentApprovedDuringTheCheckStaysApproved() {
