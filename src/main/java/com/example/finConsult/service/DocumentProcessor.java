@@ -209,6 +209,8 @@ public class DocumentProcessor {
     }
 
     KycDocument saveCheckResult(Long documentId, KycDocument doc) {
+        // also needed without a conflict: the approval may have been picked up by the earlier hash save
+        sendBackIfApprovedAndFlagged(documentId, doc);
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
                 return kycDocumentRepository.save(doc);
@@ -218,14 +220,7 @@ public class DocumentProcessor {
                 fresh.setDetectedType(doc.getDetectedType());
                 fresh.setSha256(doc.getSha256());
                 fresh.setFlagReason(doc.getFlagReason());
-
-                // approved a moment ago, but the check flagged it: send it back to review
-                if (fresh.getStatus() == KycStatus.APPROVED && fresh.getFlagReason() != null) {
-                    fresh.setStatus(KycStatus.PENDING);
-                    fresh.setReviewedBy(null);
-                    fresh.setReviewedAt(null);
-                    log.warn("KYC document {} was approved but the check flagged it, sent back to review", documentId);
-                }
+                sendBackIfApprovedAndFlagged(documentId, fresh);
                 doc = fresh;
             } catch (DataIntegrityViolationException e) {
                 // the client already has another pending document of this type, so keep the approval and only record the flag
@@ -239,6 +234,16 @@ public class DocumentProcessor {
         }
         log.error("Could not save the check result for KYC document {}", documentId);
         return doc;
+    }
+
+    // approved a moment ago, but the check flagged it: send it back to review
+    private void sendBackIfApprovedAndFlagged(Long documentId, KycDocument doc) {
+        if (doc.getStatus() == KycStatus.APPROVED && doc.getFlagReason() != null) {
+            doc.setStatus(KycStatus.PENDING);
+            doc.setReviewedBy(null);
+            doc.setReviewedAt(null);
+            log.warn("KYC document {} was approved but the check flagged it, sent back to review", documentId);
+        }
     }
 
 }
