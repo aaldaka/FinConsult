@@ -4,6 +4,8 @@
 
 **FinConsult** is a financial advisory platform that caters to customers, helping them make reasonable financial decisions. Clients find a financial advisor who matches what they need (loans, mortgages, investments, retirement, insurance, business banking or general advice), book an available time slot, and meet the advisor. Advisors manage their own availability and appointments, and administrators look after users, KYC documents and the audit trail.
 
+> **Project 3:** this version adds background document checks, a VirusTotal malware lookup and concurrency control for every operation two people can trigger at once. See [Project 3 Changes](#project-3-changes), [Concurrency Explanation](#concurrency-explanation) and [Testing](#testing).
+
 ### Application purpose
 
 Booking a financial consultation normally means phone calls and back-and-forth scheduling, and services that involve moving money require identity checks first. FinConsult puts the whole flow in one secure REST API: availability, booking, identity (KYC) verification, notifications and accountability.
@@ -29,15 +31,18 @@ Booking a financial consultation normally means phone calls and back-and-forth s
 * A scheduled job closes out `CONFIRMED` appointments as `COMPLETED` once their slot has finished
 
 **KYC**
-* Clients upload identity documents (JPEG, PNG, PDF or DOCX, max 5 MB); admins approve or reject with a reason, and can download the file
+* Clients upload identity documents (JPEG, PNG, PDF or DOCX, max 5 MB), one at a time or several at once (`POST /kyc/batch`); admins approve or reject with a reason, and can download the file
+* Every document is checked in the background (Project 3): real file type, SHA-256 hash, duplicate from another account, VirusTotal malware lookup. Flagged documents show the reason to admins only
 
 **Becoming an advisor**
 * Clients can apply to become an advisor with their title, specialty, experience and one or more certificates (PDF, JPG or PNG)
 * Applying requires an active, non-blacklisted client account and an **approved national ID or passport**; only one application may be pending at a time and each client gets 3 attempts in total
 * Admins review the queue, download the certificates, and approve or reject with a reason; approving creates the advisor profile and switches the account's role (the applicant logs in again to pick it up)
+* Certificates are checked in parallel in the background (Project 3) and marked `VALID` or `FLAGGED`; an application cannot be approved while its certificates are still being checked
 
 **Real-time and email**
 * In-app notifications for booking, confirmation, cancellation and no-show, pushed live over **Server-Sent Events**
+* Live document-check updates (`KYC_CHECKED`, `CERTIFICATES_CHECKED`) and flagged-document alerts for admins (Project 3)
 * Emails for verification and password recovery
 
 **API quality**
@@ -69,6 +74,182 @@ GET /kyc?status=PENDING&documentType=INCOME_PROOF
 
 An invalid value, for example `?status=BANANA`, returns `400 Bad Request`.
 
+## Project 3 Changes
+
+Project 3 is the next version of the same application. It keeps the Project 2 database, JWT authentication, roles and REST API, and adds background document checks, concurrency control on every operation that two people can trigger at the same time, and live updates in the frontend.
+
+### New functionality
+
+* **Advisor applications with background certificate checks.** A client applies with one or more certificates. The request returns `201` straight away, and every certificate is then checked in parallel on a worker pool: the real file type is read from the file's bytes (not its extension), a SHA-256 hash is computed, duplicates are caught (the same file from another account, or twice in one application), and the hash is looked up on VirusTotal. Each certificate ends up `VALID` or `FLAGGED`, the applicant gets a live update, and admins are notified when something is flagged. An admin cannot approve while any certificate is still being checked.
+* **KYC batch upload with the same checks.** `POST /kyc/batch` uploads several documents at once. Each document is checked in the background and gets a detected type, a hash and, if needed, a flag reason that only admins can see.
+* **Malware check through the VirusTotal API.** Hashes are looked up on VirusTotal's public API (free tier: 4 lookups per minute). A shared limiter keeps the whole app under that limit, and repeated files are answered from a cache.
+
+### New models
+
+* `AdvisorApplication`: a client's request to become an advisor (title, specialty, experience, status, reviewer, rejection reason, `@Version`).
+* `ApplicationCertificate`: one uploaded certificate with its check result (`PROCESSING`, `VALID` or `FLAGGED`, detected type, SHA-256).
+
+Existing models extended for Project 3:
+
+* `KycDocument`: `detectedType`, `sha256`, `flagReason` and `@Version`.
+* `Appointment`: `excused`, `excuseReason` and `@Version`.
+* `User`: `noShowStrikes` and `blacklisted` are now only changed by atomic SQL; `@DynamicUpdate` so a stale save cannot overwrite them.
+
+### Concurrency-sensitive workflow
+
+The main scenario is the booking workflow from Project 2, now safe under concurrent requests:
+
+```
+Available slots: 1
+
+Client A ─┐
+          ├──→ POST /appointments/book/{slotId} → row lock on the slot → one 201, one 409
+Client B ─┘
+```
+
+The second scenario comes from the new code: a KYC document being checked in the background while an admin reviews it at the same moment (see [Race condition 2](#race-condition-2-background-check-vs-admin-approval)).
+
+### Concurrency techniques used
+
+| Technique | Where | Why |
+|---|---|---|
+| Pessimistic lock (`SELECT ... FOR UPDATE`) | Booking and deleting a slot, creating slots (advisor row) | The loser must wait and then see the real state |
+| Optimistic lock (`@Version`) | `Appointment`, `KycDocument`, `AdvisorApplication` | Conflicts are rare, so no lock is held; a conflict returns `409` or is retried |
+| Atomic SQL (`UPDATE ... RETURNING`) | Adding and removing strikes | The database does the counting, so parallel strikes are never lost |
+| Partial unique indexes | One active appointment per slot, one pending application per user, one pending KYC document per type | The database itself refuses a second active row, even if a code path skips the lock |
+| Thread pools (`ThreadPoolTaskExecutor`) | `docExecutor`, `mailExecutor`, `notificationExecutor` | Slow work runs in the background with bounded threads and queues |
+| `CompletableFuture` | One task per file, `allOf(...).thenRun(...)`, `exceptionally(...)` | Check files in parallel and act once when all are done |
+| `Semaphore` + `ScheduledExecutorService` | VirusTotal limiter | At most 4 lookups per minute across all worker threads |
+| `ConcurrentHashMap`, `CopyOnWriteArrayList` | VirusTotal cache, SSE connections, rate-limit buckets | Shared in-memory state read and written by many threads |
+| After-commit hooks | Starting the checks, pushing notifications | Background work only starts once the data is really saved |
+
+### Database consistency approach
+
+Every shared resource in FinConsult is a database row (a slot, an appointment, a document, a client's strike count), so consistency is enforced by PostgreSQL rather than by Java locks. Each business operation runs in one transaction; the row that decides the outcome is either locked (`FOR UPDATE`) or version-checked (`@Version`); counters are updated in a single SQL statement; and partial unique indexes make an impossible state (two active bookings for one slot) impossible to store. When a request loses a race it gets a `409 Conflict` and the database is left unchanged.
+
+### Asynchronous processing
+
+* Certificate and KYC checks run on `docExecutor` after the upload commits, so the upload request returns immediately.
+* Emails are sent on `mailExecutor` (`@Async`), so a slow mail server never slows down a request.
+* Notifications are pushed to SSE subscribers on `notificationExecutor` after the transaction commits.
+* A scheduled job marks finished appointments as `COMPLETED`.
+
+## Concurrency Explanation
+
+### Race condition 1: double booking
+
+* **Shared resource:** one `AvailabilitySlot` row.
+* **Why it happens at the same time:** two clients look at the same advisor's free slots and press Book within the same moment. Each request runs on its own server thread.
+* **The race:** both requests read the slot as `AVAILABLE` before either has saved anything. Both then create an appointment and mark the slot `BOOKED`.
+* **Wrong result without control:** two confirmed appointments for one advisor at one time, and both clients receive `201 Created`.
+* **How it is prevented:**
+   1. `bookSlot` loads the slot with `findByIdForUpdate` (`SELECT ... FOR UPDATE`). The first request locks the row; the second waits.
+   2. The first request creates the appointment, sets the slot to `BOOKED` and commits, which releases the lock.
+   3. The second request now reads the committed row, sees `BOOKED`, and throws `SlotUnavailable`, which the global handler returns as `409 Conflict`.
+   4. Backup: the partial unique index `ux_appointments_one_active_per_slot` allows only one `PENDING` or `CONFIRMED` appointment per slot, so the database refuses a second one even if a code path skipped the lock.
+
+```
+Client A                                   Client B
+locks slot row (FOR UPDATE)
+status AVAILABLE -> create appointment     tries to lock the same row: waits
+slot = BOOKED, commit, lock released  -->  gets the lock, reads BOOKED
+201 Created                                409 Conflict
+```
+
+"First" means whichever request reaches the database lock first, not who clicked first. Either way only one booking can win.
+
+<!-- screenshot to add: evidence/11-double-booking.png (two windows, one booked and one "just booked by someone else")
+![Double booking](evidence/11-double-booking.png)
+-->
+
+### Race condition 2: background check vs admin approval
+
+This race lives in the new Project 3 code.
+
+* **Shared resource:** one `KycDocument` row.
+* **Why it happens at the same time:** after an upload, a worker thread checks the file (type, hash, duplicate search, VirusTotal), which takes a few seconds. During that time the document is visible to admins, and an admin can approve it.
+* **The race:** the worker loaded the document while it was `PENDING`. The admin approves and commits. The worker then saves its own, older copy.
+* **Wrong result without control:** the worker's save overwrites the approval (lost update), or a document the check flagged as malware stays `APPROVED`.
+* **How it is prevented:**
+   1. `@Version` on `KycDocument` makes the worker's stale save fail instead of overwriting the approval.
+   2. `saveCheckResult` catches the conflict, reloads the latest version, copies the check result (type, hash, flag) onto it and retries, up to 3 times.
+   3. If the document was approved but the check flagged it, it is sent back to `PENDING` with the reviewer cleared, so an admin has to look at it again. A clean document keeps its approval.
+   4. While preparing the demo I found a second case: if the admin approves before the worker's first save, the final save has no conflict, so the document stayed approved. The check now also runs right before the final save, and a test covers this case.
+
+![KYC check retrying after the admin approved during the check](evidence/KycRetry.png)
+
+### Other races handled
+
+| Scenario | Without control | Protection |
+|---|---|---|
+| Client double-submits an advisor application | Two pending applications | Partial unique index, `409` |
+| Two admins approve the same application | Two advisor profiles for one user | `@Version`, `409` |
+| Admin approves while certificates are being checked | An application approved before its checks finished | Approve is refused while any certificate is `PROCESSING` |
+| Two no-shows or excuses for one client at once | A strike lost, or removed twice | Atomic `UPDATE ... RETURNING`; `@Version` on the appointment |
+| Advisor confirms while the client cancels | Slot status and appointment status disagree | `@Version` on `Appointment` |
+| Two overlapping slots created at once | Overlapping availability | Advisor row lock while checking overlaps |
+| Same file uploaded by two accounts in parallel | Neither upload flagged | The hash is saved first, then the duplicate check runs |
+| Eight worker threads calling VirusTotal | Over the free limit (4 per minute), requests rejected | Fair `Semaphore(4)`; each permit is returned 60 seconds after it was taken |
+
+### Why database locks and not `synchronized`
+
+The shared state is in PostgreSQL, not in Java objects. A `synchronized` block or a `ReentrantLock` only protects one JVM: with two app instances behind a load balancer it would protect nothing, and inside one instance it would make every booking wait for every other booking, even for different slots. A row lock only blocks requests for the same slot. Pessimistic locking is used where conflicts are likely and the loser must see the real state (booking); optimistic locking is used where conflicts are rare and holding a lock would block for no reason (reviews, background checks). Java concurrency tools are used where the shared state really is in memory: the VirusTotal limiter and cache, and the SSE connections.
+
+### Thread pools and why these sizes
+
+| Pool | Core / max / queue | Reasoning |
+|---|---|---|
+| `docExecutor` (`doc-worker-`) | 4 / 8 / 30 | File checks are I/O-bound (disk read, HTTP call), so a few more threads than CPU cores helps. Capped at 8 so a large batch cannot exhaust database connections. |
+| `mailExecutor` (`mail-worker-`) | 2 / 4 / 30 | Emails are few and slow; a small pool keeps SMTP from being flooded. |
+| `notificationExecutor` (`notify-`) | 2 / 4 / 50 | Pushes are fast but frequent; a longer queue absorbs bursts. |
+
+All three use `CallerRunsPolicy`: when a queue is full the caller runs the task itself, which slows the sender down instead of dropping work.
+
+![Certificates checked on three worker threads](evidence/CheckingDocsOn_doc-worker.png)
+
+When all checks finish, the applicant's page updates live over SSE without a refresh:
+
+![Certificates marked Checked without a page refresh](evidence/CheckedAdvisorDoc.png)
+
+## Testing
+
+There are 39 tests (147 runs, because the race tests repeat). 22 of them are concurrency tests. The ones that need Spring run against a separate `finconsult_test` database, so demo data is never touched.
+
+Each concurrency test creates its own data, starts several threads, holds them at a `CountDownLatch` and releases them at the same moment, then checks both the results (exactly one winner, the others refused) and the final database state. Race tests are repeated 5 to 20 times, because a race may only show up occasionally.
+
+| Test class | What it proves |
+|---|---|
+| `BookingConcurrencyTest` | 2 and 8 clients on one slot: one booking; deleting a slot while it is booked: only one wins |
+| `RestConcurrencyTest` | Two real HTTP requests to `POST /appointments/book/{slotId}`: one `201`, one `409` |
+| `AppointmentConcurrencyTest` | Confirm vs cancel keeps slot and appointment consistent; overlapping slots created at once: one created |
+| `StrikeConcurrencyTest` | 10 parallel strikes: none lost; blacklisted at exactly 3; a no-show excused twice at once: one strike removed |
+| `ApplicationConcurrencyTest` | Double submit, two admins approving, approve vs reject, approve blocked during checks, three certificates checked on the pool |
+| `KycConcurrencyTest` | Double upload, check vs approval (flagged goes back to review, clean stays approved, including the second interleaving), batch on the pool, duplicate file flagged |
+| `VirusTotalServiceTest` | No key: skipped; six lookups at once: four run immediately, the fifth and sixth wait for a permit |
+
+Running them (PostgreSQL running, `finconsult_test` created, the environment variables set, `VIRUSTOTAL_API_KEY` not set):
+
+```bash
+./mvnw test                                   # everything
+./mvnw test -Dtest=RestConcurrencyTest        # the 201 / 409 HTTP test only
+```
+
+Example output:
+
+```
+HTTP statuses: [201, 409]
+Lookups finished after (seconds): [1, 1, 1, 1, 60, 60]
+Tests run: 147, Failures: 0, Errors: 0, Skipped: 0
+```
+
+<!-- screenshot to add: evidence/13-rest-201-409.png (RestConcurrencyTest output with HTTP statuses: [201, 409])
+![201 and 409](evidence/13-rest-201-409.png)
+-->
+
+![All 147 test runs passing](evidence/TestsPassed.png)
+
+More screenshots and logs are in the [evidence](evidence/) folder.
+
 ## Technologies
 
 * Java 17
@@ -80,6 +261,9 @@ An invalid value, for example `?status=BANANA`, returns `400 Bad Request`.
 * Bean Validation (`jakarta.validation`)
 * Bucket4j (rate limiting)
 * Server-Sent Events (`SseEmitter`) for real-time notifications
+* Java concurrency: `ThreadPoolTaskExecutor`, `CompletableFuture`, `Semaphore`, `ScheduledExecutorService`, concurrent collections
+* VirusTotal API v3 (malware lookup by file hash) through Spring's `RestClient`
+* JUnit 5 and Spring Boot Test (concurrency tests), Mockito
 * Spring Mail (SMTP)
 * springdoc-openapi (Swagger UI / OpenAPI)
 * Lombok
@@ -104,9 +288,9 @@ Controller  ->  Service  ->  Repository  ->  PostgreSQL
 | `security` | JWT filter and utilities, Spring Security configuration, rate-limit filter, auditor provider for `createdBy` / `updatedBy` |
 | `exception` | Custom exceptions and the `GlobalException` handler that returns a consistent error body |
 | `event` | Notification events and the listener that pushes them to SSE subscribers after the transaction commits |
-| `config` | OpenAPI configuration and the development data seeder |
+| `config` | OpenAPI configuration, thread pools (`AsyncConfig`), partial unique indexes (`SchemaFixes`) and the development data seeder |
 
-**Main entities:** `User`, `Profile`, `Advisor`, `ServiceType`, `AvailabilitySlot`, `Appointment`, `KycDocument`, `Notification`, `AuditLog`, `VerificationToken`, `PasswordResetToken`.
+**Main entities:** `User`, `Profile`, `Advisor`, `ServiceType`, `AvailabilitySlot`, `Appointment`, `KycDocument`, `Notification`, `AuditLog`, `VerificationToken`, `PasswordResetToken`, and in Project 3 `AdvisorApplication` and `ApplicationCertificate`.
 
 **Roles**
 
@@ -122,21 +306,210 @@ I started from the data model and the booking rules rather than from the endpoin
 
 Security is applied at several layers. Spring Security with a stateless JWT filter protects every route except registration, login, forgot-password and email verification. Roles are enforced with `@PreAuthorize`, and ownership is checked in the services (for example, only the two parties of an appointment can cancel it). Entities are never returned directly: services return response DTOs built by one central mapper, so the password hash and internal fields never leave the API. Errors go through one global exception handler so clients always receive the same structure.
 
+In Project 3 the focus moved to what happens when two people act at the same moment. I first listed every operation where two requests can touch the same row (a slot, an appointment, a document, a strike count), then chose the cheapest protection that is still correct for each: a row lock where the loser must see the real state, a version check where conflicts are rare, an atomic SQL update for counters, and a partial unique index so the database itself refuses an invalid second row. Slow work (file checks, emails, pushes) moved to bounded thread pools that only start after the transaction commits. Each race got a test that releases several threads at once and checks the final database state.
+
 Real-time notifications are saved as `Notification` records and then pushed over Server-Sent Events. The push happens in an `AFTER_COMMIT` event listener, so a client is never told about something that was rolled back. The audit log records who did what (for example, cancellations and admin actions) in a separate table, while JPA auditing adds `createdBy` and `updatedBy` columns to the entities.
 
 ## User Stories
 
-[View the user stories on Github Project]
-(https://github.com/users/aaldaka/projects/3)
+[View the user stories on Github Project](https://github.com/users/aaldaka/projects/3)
+
+### Project 3 user stories
+
+**Client**
+* As a client, I want to apply to become an advisor by uploading my certificates, so that I can offer consultations on FinConsult.
+* As a client, I want to see whether my certificates and documents are still being checked, so that I know when my application can be reviewed.
+* As a client, I want to upload several KYC documents at once, so that I don't have to repeat the upload for each one.
+* As a client, I want the system to stop another client from booking the slot I am booking at the same moment, so that I never turn up to a double-booked appointment. *(concurrency)*
+* As a client, I want a clear message when someone else booked the slot first, so that I can pick another time straight away. *(concurrency)*
+
+**Advisor**
+* As an advisor, I want a client's strikes to be counted correctly even when several are added at the same time, so that repeat no-shows are blacklisted reliably. *(concurrency)*
+* As an advisor, I want two overlapping slots to never both be created, so that my availability is always accurate. *(concurrency)*
+
+**Admin**
+* As an admin, I want certificates and KYC documents checked automatically for fake files, duplicates and known malware, so that I only spend time on what needs attention.
+* As an admin, I want a document that the check flags after I approved it to come back to my review queue, so that a bad file never stays approved. *(concurrency)*
+* As an admin, I want only one decision to count when two admins review the same application at the same moment, so that a user is never promoted twice. *(concurrency)*
 
 ## ERD
 
-![FinConsult ERD](ERD.png)
+Updated for Project 3 (`advisor_applications`, `application_certificates`, the check columns and the `version` columns). GitHub renders this diagram and lets you zoom and pan.
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#ffffff", "primaryColor": "#dbeafe", "primaryTextColor": "#1e3a8a", "primaryBorderColor": "#1e3a8a", "lineColor": "#1e3a8a", "textColor": "#1e3a8a", "secondaryColor": "#eff6ff", "tertiaryColor": "#ffffff", "attributeBackgroundColorOdd": "#ffffff", "attributeBackgroundColorEven": "#eff6ff"}}}%%
+erDiagram
+    users ||--o| profiles : has
+    users ||--o| advisors : "becomes"
+    users ||--o{ advisor_applications : applies
+    users |o--o{ advisor_applications : reviews
+    advisor_applications ||--o{ application_certificates : includes
+    advisors ||--o{ availability_slots : offers
+    users ||--o{ appointments : books
+    advisors ||--o{ appointments : holds
+    service_types ||--o{ appointments : "booked for"
+    availability_slots ||--o{ appointments : "booked as"
+    users ||--o{ kyc_documents : uploads
+    users |o--o{ kyc_documents : reviews
+    users ||--o{ notifications : receives
+    appointments |o--o{ notifications : about
+    users |o--o{ audit_logs : "acts in"
+    users ||--o{ verification_tokens : "verifies with"
+    users ||--o{ password_reset_tokens : "resets with"
+
+    users {
+        bigint id PK
+        varchar email UK
+        varchar password "bcrypt hash"
+        enum role "ADMIN, CLIENT, ADVISOR"
+        enum user_status "UNVERIFIED, ACTIVE, INACTIVE"
+        int no_show_strikes
+        boolean blacklisted "true at 3 strikes"
+    }
+    profiles {
+        bigint id PK
+        bigint user_id FK, UK
+        varchar first_name
+        varchar last_name
+        varchar phone
+        date date_of_birth
+        varchar profile_picture_path
+    }
+    advisors {
+        bigint id PK
+        bigint user_id FK, UK
+        varchar title
+        enum specialty
+        int years_of_experience
+        boolean active
+    }
+    advisor_applications {
+        bigint id PK
+        bigint user_id FK "applicant"
+        varchar title
+        enum specialty
+        int years_of_experience
+        enum status "PENDING, APPROVED, REJECTED"
+        bigint reviewed_by FK "admin"
+        timestamp reviewed_at
+        varchar rejection_reason
+        bigint version "optimistic lock"
+    }
+    application_certificates {
+        bigint id PK
+        bigint application_id FK
+        varchar file_path
+        varchar original_file_name
+        varchar content_type
+        bigint file_size
+        enum status "PROCESSING, VALID, FLAGGED"
+        varchar detected_type
+        varchar sha256
+    }
+    service_types {
+        bigint id PK
+        varchar name UK
+        varchar description
+        int duration_minutes
+        boolean requires_kyc
+        boolean active
+        enum required_document_type "null = any"
+        enum required_specialty "null = any"
+    }
+    availability_slots {
+        bigint id PK
+        bigint advisor_id FK
+        timestamp start_time
+        timestamp end_time
+        enum status "AVAILABLE, BOOKED"
+    }
+    appointments {
+        bigint id PK
+        bigint client_id FK
+        bigint advisor_id FK
+        bigint service_type_id FK
+        bigint slot_id FK
+        enum status "PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW"
+        varchar notes
+        varchar cancellation_reason
+        timestamp cancelled_at
+        boolean excused
+        varchar excuse_reason
+        bigint version "optimistic lock"
+    }
+    kyc_documents {
+        bigint id PK
+        bigint user_id FK
+        enum document_type "NATIONAL_ID, PASSPORT, PROOF_OF_ADDRESS, INCOME_PROOF"
+        varchar file_path
+        varchar original_file_name
+        varchar content_type
+        bigint file_size
+        enum status "PENDING, APPROVED, REJECTED"
+        bigint reviewed_by FK "admin"
+        timestamp reviewed_at
+        varchar rejection_reason
+        varchar detected_type
+        varchar sha256
+        varchar flag_reason
+        bigint version "optimistic lock"
+    }
+    notifications {
+        bigint id PK
+        bigint user_id FK
+        enum type
+        varchar message
+        boolean is_read
+        bigint related_appointment_id FK
+        timestamp created_at
+    }
+    audit_logs {
+        bigint id PK
+        bigint actor_id FK "null for system events"
+        varchar action
+        varchar entity_type
+        bigint entity_id
+        varchar details
+        timestamp timestamp
+    }
+    verification_tokens {
+        bigint id PK
+        bigint user_id FK
+        varchar token UK
+        timestamp expires_at
+        boolean used
+    }
+    password_reset_tokens {
+        bigint id PK
+        bigint user_id FK
+        varchar token UK
+        timestamp expires_at
+        boolean used
+    }
+```
+
+`users`, `profiles`, `advisors`, `advisor_applications`, `application_certificates`, `service_types`, `availability_slots`, `appointments` and `kyc_documents` also have `created_at`, `updated_at`, `created_by` and `updated_by` from `BaseEntity` (JPA auditing).
+
+Partial unique indexes added on startup (`SchemaFixes`) to stop races at the database level:
+- `appointments (slot_id)` where status is PENDING or CONFIRMED: one active booking per slot
+- `advisor_applications (user_id)` where status is PENDING: one pending application per user
+- `kyc_documents (user_id, document_type)` where status is PENDING: one pending document per type
 
 ## Planning
 
-[View the project plan on Github Project]
-(https://github.com/users/aaldaka/projects/3)
+[View the project plan on Github Project](https://github.com/users/aaldaka/projects/3)
+
+### Project 3 plan
+
+| Day | Tasks | Status |
+|---|---|---|
+| 1 | Extend the data model (`AdvisorApplication`, `ApplicationCertificate`, KYC check columns); advisor application workflow and eligibility rules | Done |
+| 2 | Identify shared state and race conditions (booking, strikes, reviews, uploads); booking lock and partial unique indexes | Done |
+| 3 | Thread pools (`AsyncConfig`); parallel certificate and KYC checks with `CompletableFuture`; after-commit hooks | Done |
+| 4 | Optimistic locking (`@Version`), atomic strike updates, `@DynamicUpdate`; blocking blacklisted users; VirusTotal integration and limiter | Done |
+| 5 | Concurrency test suite (22 tests); fix the KYC check vs approval race and the second interleaving found while testing | Done |
+| 6 | Real-time updates in the frontend (SSE), 401 and 409 handling; Swagger 201/409 responses; Javadoc; seed data; README and ERD | Done |
+| 7 | Evidence screenshots, final test run, presentation | In progress |
 
 ## API Documentation
 
@@ -168,13 +541,16 @@ To try protected endpoints: call `POST /auth/login`, copy the `token` from the r
 | GET | `/slots/mine` | List own slots | Advisor |
 | POST | `/slots` | Create an availability slot | Advisor |
 | DELETE | `/slots/{id}` | Delete an unbooked slot | Advisor |
-| POST | `/appointments/book/{slotId}` | Book a slot for a service type | Client |
+| POST | `/appointments/book/{slotId}` | Book a slot for a service type (`201`, or `409` if someone else booked it first) | Client |
 | GET | `/appointments/mine` | List own appointments (`?status=`, `?sort=`) | Private |
 | PATCH | `/appointments/{id}/confirm` | Confirm a pending appointment | Advisor |
 | PATCH | `/appointments/{id}/cancel` | Cancel an appointment (late cancel adds a strike) | Private (appointment parties) |
 | PATCH | `/appointments/{id}/no-show` | Mark the client as a no-show | Advisor |
 | PATCH | `/appointments/{id}/excuse` | Excuse a no-show and recalculate strikes | Admin |
+| GET | `/appointments/no-shows` | List no-show appointments (excused ones included) | Admin |
 | POST | `/kyc` | Upload a KYC document | Client |
+| POST | `/kyc/batch` | Upload several KYC documents at once (Project 3) | Client |
+| PUT | `/kyc/{id}/file` | Upload a new file for own document; it goes back to pending review and is checked again | Client |
 | GET | `/kyc/me` | List own KYC documents | Client |
 | GET | `/kyc` | List KYC documents (`?status=`, `?documentType=`, `?page=`, `?size=`) | Admin |
 | PATCH | `/kyc/{id}/approve` | Approve a KYC document | Admin |
@@ -186,16 +562,31 @@ To try protected endpoints: call `POST /auth/login`, copy the `token` from the r
 | PATCH | `/advisor-applications/{id}/approve` | Approve an application and promote the applicant | Admin |
 | PATCH | `/advisor-applications/{id}/reject` | Reject an application with a reason | Admin |
 | GET | `/advisor-applications/certificates/{certificateId}/download` | Download a certificate file | Admin |
+| PUT | `/advisor-applications/certificates/{certificateId}/file` | Upload a new file for a certificate of own pending application; it is checked again | Client |
 | GET | `/notifications/mine` | List own notifications | Private |
 | GET | `/notifications/mine/unread` | List own unread notifications | Private |
 | PATCH | `/notifications/{id}/read` | Mark a notification as read | Private |
+| PATCH | `/notifications/mine/read-all` | Mark all own notifications as read | Private |
 | GET | `/notifications/stream` | Subscribe to real-time notifications (SSE) | Private |
 | POST | `/admin/advisors` | Create an advisor account | Admin |
+| GET | `/admin/clients` | List clients that are not deactivated (for the deactivate picker) | Admin |
 | PATCH | `/admin/users/{id}/deactivate` | Deactivate a user and cancel their appointments | Admin |
 | PATCH | `/admin/advisors/{id}/deactivate` | Deactivate an advisor (reason required) | Admin |
 | GET | `/admin/logs` | List audit logs (`?action=`, `?page=`, `?size=`) | Admin |
 
 "Private" means any logged-in user with a valid JWT.
+
+### Project 3 API changes
+
+* **New endpoint:** `POST /kyc/batch` (several files with one document type each).
+* **New response fields:** `KycDocResponse` has `detectedType` and `flagged` (and `flagReason` for admins only); `CertificateResponse` has `status` and `detectedType`.
+* **Status codes:** booking and slot creation return `201 Created`. Every operation that can lose a race documents `409 Conflict`: booking, application submit/approve/reject, KYC upload/approve/reject, and appointment confirm/cancel/no-show/excuse.
+* **New rules:** approving an application while a certificate is `PROCESSING` returns `400`; requests from blacklisted or deactivated users are no longer authenticated, so they are rejected on their next request, even with a valid token.
+* **SSE:** `/notifications/stream` also accepts the JWT as a `?token=` query parameter, because the browser's `EventSource` cannot send headers. Only this endpoint accepts it.
+
+<!-- screenshot to add: evidence/17-swagger-409.png (Swagger UI showing the 201 and 409 responses of the booking endpoint)
+![Swagger booking responses](evidence/17-swagger-409.png)
+-->
 
 ### Error responses
 
@@ -214,7 +605,7 @@ Errors share one structure.
 ### Real-time notifications (SSE)
 
 1. Log in and copy the JWT.
-2. Open a connection with the token in the `Authorization: Bearer <token>` header, for example in Postman: `GET http://localhost:8080/notifications/stream`.
+2. Open a connection with the token in the `Authorization: Bearer <token>` header (for example in Postman), or as a query parameter from a browser: `GET http://localhost:8080/notifications/stream?token=<token>`.
 3. In another request, trigger an event (for example, book or confirm an appointment as the other user).
 4. The connected client receives the notification immediately, without polling.
 
@@ -237,22 +628,26 @@ Errors share one structure.
 4. **Set environment variables** (they are not stored in the code):
 
    | Variable | Purpose |
-   |---|---|
+      |---|---|
    | `JWT_SECRET` | Secret used to sign JWTs (use a long random string) |
+   | `DB_PASSWORD` | Password of your local PostgreSQL user |
    | `MAIL_USERNAME` | SMTP account that sends verification and reset emails |
    | `MAIL_PASSWORD` | SMTP password or app password |
+   | `VIRUSTOTAL_API_KEY` | Optional. Free key from virustotal.com; without it the malware lookup is skipped and the other checks still run |
 
-   Example (PowerShell): `$env:JWT_SECRET="a-long-random-string"`. Without mail credentials the app still runs, but verification and password-reset emails cannot be sent. Use a seeded account (below) to log in instead.
+   Example (PowerShell): `$env:JWT_SECRET="a-long-random-string"`. In Git Bash: `export JWT_SECRET="a-long-random-string"`. In IntelliJ, put them in the run configuration separated by `;`. Without mail credentials the app still runs, but verification and password-reset emails cannot be sent. Use a seeded account (below) to log in instead.
 5. **Seed the database.** Nothing to run. With the `dev` profile the seeder runs automatically on startup. It only adds data that does not exist yet, so restarting never creates duplicates. It creates:
    * 7 service types (one per specialty; the money-related ones require KYC)
    * 1 admin, 8 advisors (one per specialty, plus a second General advisor) and 4 clients
    * availability slots for the next five working days, approved KYC documents for one client, and sample appointments
+   * Project 3 demo data: an advisor application ready to approve (Hessa), one with a flagged certificate (Salman), a rejected one (Hamad), and a flagged KYC document (Salman)
 6. **Start the application**
    ```bash
    ./mvnw spring-boot:run
    ```
    The API is available at http://localhost:8080.
 7. **Access Swagger / OpenAPI:** http://localhost:8080/swagger-ui/index.html
+8. **Run the tests** (needs `CREATE DATABASE finconsult_test;` once, the same environment variables, and `VIRUSTOTAL_API_KEY` unset): `./mvnw test`. See [Testing](#testing).
 
 ### Frontend (React)
 The `frontend` folder holds a React app (TypeScript, Vite, Tailwind, TanStack Query) that consumes the REST API.
@@ -276,12 +671,14 @@ All seeded accounts use the password `Password123!`.
 | Advisor (Investments) | `nasser.alkooheji@finconsult.com` |
 | Advisor (General) | `reem.almannai@finconsult.com` |
 | Client (KYC approved) | `maryam.alhammadi@example.com` |
-| Client | `hamad.alansari@example.com` |
+| Client (rejected advisor application) | `hamad.alansari@example.com` |
+| Client (advisor application ready to approve) | `hessa.albinali@example.com` |
+| Client (flagged certificate and KYC document) | `salman.alderazi@example.com` |
 
 ## Unsolved Problems
 
 * **Uploaded files are stored on the local disk** (`uploads/`). A production setup would use object storage.
-* **No refresh tokens.** A JWT is valid until it expires and then the user must log in again. Blacklisted clients maintain their tokens.
+* **No refresh tokens.** A JWT is valid until it expires and then the user must log in again. (Since Project 3, blacklisted and deactivated users are blocked on their next request.)
 * **Seeded KYC documents are placeholders.** They are approved records without real files, so they cannot be downloaded.
 
 ## Major Challenges
@@ -289,6 +686,9 @@ All seeded accounts use the password `Password123!`.
 * **Preventing double booking and keeping slots consistent.** A booking has to reserve the slot and create the appointment together, and a cancellation has to release the slot again. Both run in a single transaction in the service layer, and a slot's status is checked before it is booked.
 
 * **Entities leaked through the API.** Early endpoints returned entities, which exposed internal fields. I introduced response DTOs and one central mapper so every service returns the same safe shapes.
+* **Project 3: understanding threads and where concurrency applies.** At first I thought about concurrency as "add threads". Each HTTP request already runs on its own server thread, so the real question was which of those requests can touch the same data at the same time. I went through every operation and asked what two people could do to the same row at once (book the same slot, review the same document, add strikes to the same client), and only then chose a lock, a version check or a database constraint for each. Thread pools came last, for work that is slow and does not need to block the user, like checking uploaded files.
+* **Project 3: the KYC check racing an admin approval.** The background check could overwrite an approval or leave a flagged file approved. `@Version` turned the overwrite into a conflict, and a retry that merges the check result fixed it. While preparing the demo I found a second order of events the first fix missed (approval before the hash save), wrote a test that reproduced it, and fixed it.
+* **Project 3: rate limit vs concurrency limit.** A semaphore released when the VirusTotal call finished still allowed more than 4 calls per minute. Each permit is now returned 60 seconds after it was taken, by a scheduler thread.
 * **A query parameter that silently did nothing.** A KYC filter parameter was ignored because Spring binds an unannotated enum parameter by variable name. Annotating it explicitly and adding a handler for invalid enum values (returning `400`) fixed it.
 
 
@@ -296,7 +696,6 @@ All seeded accounts use the password `Password123!`.
 
 * Major banks and other entities as clients
 * Payment gateway for paid consultations
-* Advisor applications, with their credentials and qualifications verified
 * AI assistant to help with inquiries. If a general advisor is unavailable, the assistant steps in. It detects sensitive information such as salary or ID numbers and does not save the session data
 * Cleaner code approach when it comes to separation of concerns
 * Change `createdBy` and `updatedBy` to display the actor's name instead of the their ID for better clarity
@@ -310,4 +709,11 @@ All seeded accounts use the password `Password123!`.
 | Spring Data `PageRequest` API docs | https://docs.spring.io/spring-data/commons/docs/current/api/org/springframework/data/domain/PageRequest.html | Pagination |
 | Baeldung: Sorting with Spring Data | https://www.baeldung.com/spring-data-sorting | Sorting |
 | springdoc-openapi | https://springdoc.org | Swagger / OpenAPI documentation |
-| dbdiagram.io | https://dbdiagram.io | Entity Relationship Diagram |
+| ByteByteGo: Pessimistic vs Optimistic Locking | https://bytebytego.com/guides/pessimistic-vs-optimistic-locking/ | Choosing between row locks and version checks (Project 3) |
+| Baeldung: Guide to ExecutorService vs. CompletableFuture | https://www.baeldung.com/java-executorservice-vs-completablefuture | Running the document checks in parallel and combining the results (Project 3) |
+| Spring Framework: Task Execution and Scheduling | https://docs.spring.io/spring-framework/reference/integration/scheduling.html | `@Async`, `ThreadPoolTaskExecutor` and `@Scheduled` (Project 3) |
+| Baeldung: CompletableFuture and ThreadPool in Java | https://www.baeldung.com/java-completablefuture-threadpool | Running `CompletableFuture` tasks on a custom thread pool (Project 3) |
+| GeeksforGeeks: Hibernate @Version Annotation with Example | https://www.geeksforgeeks.org/?p=1021984 | Optimistic locking with `@Version` (Project 3) |
+| Spring Framework: SimpleClientHttpRequestFactory API | https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/http/client/SimpleClientHttpRequestFactory.html | Connect and read timeouts for the VirusTotal client (Project 3) |
+| VirusTotal API: Get a file report | https://docs.virustotal.com/reference/file-info | Looking up a file by its SHA-256 hash (Project 3) |
+| VirusTotal | https://www.virustotal.com | API key and free-tier limits (Project 3) |
