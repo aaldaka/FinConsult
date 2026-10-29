@@ -703,3 +703,4 @@ All seeded accounts use the password `Password123!`.
 | Spring Framework: SimpleClientHttpRequestFactory API | https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/http/client/SimpleClientHttpRequestFactory.html | Connect and read timeouts for the VirusTotal client (Project 3) |
 | VirusTotal API: Get a file report | https://docs.virustotal.com/reference/file-info | Looking up a file by its SHA-256 hash (Project 3) |
 | VirusTotal | https://www.virustotal.com | API key and free-tier limits (Project 3) |
+|AI assistance: Anthropic Claude | https://claude.ai | was used for learning concurrency concepts, requirement tracking, and code suggestions that were reviewed  against the application.
