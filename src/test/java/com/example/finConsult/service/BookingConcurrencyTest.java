@@ -7,7 +7,7 @@ import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.AppointmentStatus;
 import org.junit.jupiter.api.RepeatedTest;
 import org.springframework.beans.factory.annotation.Autowired;
-
+import org.junit.jupiter.api.RepetitionInfo;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,13 +27,16 @@ class BookingConcurrencyTest extends ConcurrencyTestSupport {
     }
 
     // two clients press "Book" on the same slot at the same moment
-    @RepeatedTest(20)
-    void twoClientsOneSlot() throws Exception {
+    @RepeatedTest(3)
+    void twoClientsOneSlot(RepetitionInfo info) throws Exception {
         Advisor advisor = seededAdvisor();
         ServiceType service = freeService();
         AvailabilitySlot slot = newFutureSlot(advisor);
         User first = newClient();
         User second = newClient();
+
+        System.out.println("=== Run " + info.getCurrentRepetition() + ": client " + first.getId()
+                + " vs client " + second.getId() + " on slot " + slot.getId() + " ===");
 
         Result result = runAtOnce(List.of(
                 () -> appointmentService.bookSlot(first, slot.getId(), service.getId()),

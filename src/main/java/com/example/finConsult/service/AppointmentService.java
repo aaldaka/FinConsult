@@ -62,11 +62,15 @@ public class AppointmentService {
      */
     @Transactional
     public Appointment bookSlot(User client, Long slotId, Long serviceId) {
+        log.info("Client {} wants slot {}", client.getId(), slotId);
+
         AvailabilitySlot slot = availabilitySlotRepository.findByIdForUpdate(slotId)
                 .orElseThrow(() -> new InformationNotFound("Slot not found"));
 
+        log.info("Client {} got the lock on slot {} (status {})", client.getId(), slotId, slot.getStatus());
+
         if (slot.getStatus() != SlotStatus.AVAILABLE) {
-            log.warn("Booking rejected: slot unavailable (slot {})", slotId);
+            log.warn("Client {} refused: slot {} is already {}", client.getId(), slotId, slot.getStatus());
             throw new SlotUnavailable("This slot is no longer available");
         }
 
