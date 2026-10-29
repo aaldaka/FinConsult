@@ -293,12 +293,11 @@ Controller  ->  Service  ->  Repository  ->  PostgreSQL
 | `ADMIN` | Create advisors, deactivate users and advisors, review KYC, excuse no-shows, view audit logs |
 
 ## General Approach
+I started from the data model and the booking rules rather than from the endpoints. FinConsult is a booking system, so the core question was how to guarantee that a time slot can only be reserved once, and what has to be true before a client may reserve it (an active advisor, a matching specialty, and an approved KYC document for services that involve money). Those rules live in the service layer so the controllers stay thin, and the project was built incrementally on feature branches.
 
-I started from the data model and the booking rules rather than from the endpoints. FinConsult is a booking system, so the core question was how to guarantee that a time slot can only be reserved once, and what has to be true before a client may reserve it (an active advisor, a matching specialty, and an approved KYC document for services that involve money). Those rules live in the service layer so the controllers stay thin. The project was built incrementally on feature branches: models, JWT authentication, role-based access, services, availability slots, email verification, no-show tracking, notifications, then KYC, auditing, filtering and sorting, response DTOs and API documentation.
+Security is applied at several layers. Spring Security with a stateless JWT filter protects every route except registration, login, forgot-password and email verification. Roles are enforced with `@PreAuthorize`, and ownership is checked in the services. Services return response DTOs built by one central mapper, and errors go through one global exception handler.
 
-Security is applied at several layers. Spring Security with a stateless JWT filter protects every route except registration, login, forgot-password and email verification. Roles are enforced with `@PreAuthorize`, and ownership is checked in the services (for example, only the two parties of an appointment can cancel it). Entities are never returned directly: services return response DTOs built by one central mapper, so the password hash and internal fields never leave the API. Errors go through one global exception handler so clients always receive the same structure.
-
-In Project 3 the focus moved to what happens when two people act at the same moment. I first listed every operation where two requests can touch the same row (a slot, an appointment, a document, a strike count), then chose the cheapest protection that is still correct for each: a row lock where the loser must see the real state, a version check where conflicts are rare, an atomic SQL update for counters, and a partial unique index so the database itself refuses an invalid second row. Slow work (file checks, emails, pushes) moved to bounded thread pools that only start after the transaction commits. Each race got a test that releases several threads at once and checks the final database state.
+In Project 3 the focus moved to what happens when two people act at the same moment. I listed every operation where two requests can touch the same row (a slot, an appointment, a document, a strike count), then researched the ways to protect a row while it is being accessed and picked one for each case: row locks, version checks, atomic SQL updates and partial unique indexes. Slow work (file checks, emails, pushes) runs on thread pools after the transaction commits, and each race has a test that releases several threads at once.
 
 ## User Stories
 
@@ -588,12 +587,6 @@ Errors share one structure.
 }
 ```
 
-### Real-time notifications (SSE)
-
-1. Log in and copy the JWT.
-2. Open a connection with the token in the `Authorization: Bearer <token>` header (for example in Postman), or as a query parameter from a browser: `GET http://localhost:8080/notifications/stream?token=<token>`.
-3. In another request, trigger an event (for example, book or confirm an appointment as the other user).
-4. The connected client receives the notification immediately, without polling.
 
 ## Installation
 
@@ -666,6 +659,7 @@ All seeded accounts use the password `Password123!`.
 * **Uploaded files are stored on the local disk** (`uploads/`). A production setup would use object storage.
 * **No refresh tokens.** A JWT is valid until it expires and then the user must log in again. (Since Project 3, blacklisted and deactivated users are blocked on their next request.)
 * **Seeded KYC documents are placeholders.** They are approved records without real files, so they cannot be downloaded.
+* **Privacy of personal documents.** KYC documents and certificates contain personal data and must never be uploaded to a public scanner like VirusTotal, so the app only sends each file's SHA-256 hash. A safer production option is AWS GuardDuty Malware Protection for S3, which scans files inside our own cloud account.
 
 ## Major Challenges
 
@@ -675,8 +669,7 @@ All seeded accounts use the password `Password123!`.
 * **Project 3: understanding threads and where concurrency applies.** At first I thought about concurrency as "add threads". Each HTTP request already runs on its own server thread, so the real question was which of those requests can touch the same data at the same time. I went through every operation and asked what two people could do to the same row at once (book the same slot, review the same document, add strikes to the same client), and only then chose a lock, a version check or a database constraint for each. Thread pools came last, for work that is slow and does not need to block the user, like checking uploaded files.
 * **Project 3: the KYC check racing an admin approval.** The background check could overwrite an approval or leave a flagged file approved. `@Version` turned the overwrite into a conflict, and a retry that merges the check result fixed it. While preparing the demo I found a second order of events the first fix missed (approval before the hash save), wrote a test that reproduced it, and fixed it.
 * **Project 3: rate limit vs concurrency limit.** A semaphore released when the VirusTotal call finished still allowed more than 4 calls per minute. Each permit is now returned 60 seconds after it was taken, by a scheduler thread.
-* **A query parameter that silently did nothing.** A KYC filter parameter was ignored because Spring binds an unannotated enum parameter by variable name. Annotating it explicitly and adding a handler for invalid enum values (returning `400`) fixed it.
-
+* **Project 3: privacy of personal documents.** KYC documents and certificates contain personal data and must never be uploaded to a public scanner like VirusTotal, so the app only sends each file's SHA-256 hash. A safer production option is AWS GuardDuty Malware Protection for S3, which scans files inside our own cloud account.
 
 ## Future Improvements
 
@@ -685,6 +678,9 @@ All seeded accounts use the password `Password123!`.
 * AI assistant to help with inquiries. If a general advisor is unavailable, the assistant steps in. It detects sensitive information such as salary or ID numbers and does not save the session data
 * Cleaner code approach when it comes to separation of concerns
 * Change `createdBy` and `updatedBy` to display the actor's name instead of the their ID for better clarity
+* Group sessions and webinars
+* Video consultations
+* Smart matching: the client answers a few questions (goal, budget, urgency) and the app suggests the best advisors.
 
 ## Resources
 
