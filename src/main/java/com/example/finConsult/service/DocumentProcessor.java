@@ -99,6 +99,9 @@ public class DocumentProcessor {
         KycDocument doc = kycDocumentRepository.findById(documentId)
                 .orElseThrow(() -> new InformationNotFound("KYC document not found"));
 
+        // for the demo
+        try { Thread.sleep(10000); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+
         try {
             FileInfo info = inspect(doc.getFilePath());
             doc.setDetectedType(info.type());
