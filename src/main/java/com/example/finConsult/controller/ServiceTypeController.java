@@ -35,7 +35,6 @@ public class ServiceTypeController {
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping
-    // CHANGED: typed response body
     public ResponseEntity<List<ServiceTypeResponse>> listActive() {
         return ResponseEntity.ok(serviceTypeService.getActiveServices());
     }

@@ -61,7 +61,6 @@ public class AppointmentController { // patch to partially update things instead
     })
     @PostMapping("/book/{slotId}")
     @PreAuthorize("hasRole('CLIENT')")
-    // CHANGED: typed response body
     public ResponseEntity<AppointmentResponse> bookSlot(@AuthenticationPrincipal UserDetails userDetails,
                                        @Parameter(description = "ID of the availability slot to book") @PathVariable Long slotId,
                                        @Valid @RequestBody BookAppointmentRequest bookAppointmentRequest) {
@@ -81,7 +80,6 @@ public class AppointmentController { // patch to partially update things instead
     })
     @PatchMapping("/{id}/confirm")
     @PreAuthorize("hasRole('ADVISOR')")
-    // CHANGED: typed response body
     public ResponseEntity<AppointmentResponse> confirmAppointment(@AuthenticationPrincipal UserDetails userDetails,
                                                  @Parameter(description = "ID of the appointment to confirm") @PathVariable Long id) {
          User user = ((MyUserDetails) userDetails).getUser();
@@ -99,7 +97,6 @@ public class AppointmentController { // patch to partially update things instead
             @ApiResponse(responseCode = "409", description = "Changed by someone else at the same moment, refresh and try again", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PatchMapping("/{id}/cancel")
-    // CHANGED: typed response body
     public ResponseEntity<MessageResponse> cancelAppointment(@AuthenticationPrincipal UserDetails userDetails,
                                                 @Parameter(description = "ID of the appointment to cancel") @PathVariable Long id,
                                                 @Valid @RequestBody ReasonRequest request) {
@@ -115,7 +112,6 @@ public class AppointmentController { // patch to partially update things instead
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping("/mine") //default to createdAt in desc order if no sortby was present
-    // CHANGED: typed response body
     public ResponseEntity<List<AppointmentResponse>> getMyAppointments(@AuthenticationPrincipal UserDetails userDetails,
                                                @Parameter(description = "Appointment status to filter by; omit to return every status") @RequestParam(required = false) AppointmentStatus status,
                                                @ParameterObject @SortDefault(sort = "createdAt", direction = Sort.Direction.DESC) Sort sortBy) {
@@ -154,7 +150,6 @@ public class AppointmentController { // patch to partially update things instead
     })
     @PatchMapping("/{id}/no-show")
     @PreAuthorize("hasRole('ADVISOR')")
-    // CHANGED: typed response body
     public ResponseEntity<AppointmentResponse> markNoShow(@AuthenticationPrincipal UserDetails userDetails,
                                          @Parameter(description = "ID of the appointment to mark") @PathVariable Long id) {
         User user = ((MyUserDetails) userDetails).getUser();
@@ -173,7 +168,6 @@ public class AppointmentController { // patch to partially update things instead
     })
     @PatchMapping("/{id}/excuse")
     @PreAuthorize("hasRole('ADMIN')")
-    // CHANGED: typed response body
     public ResponseEntity<AppointmentResponse> excuseNoShow(@AuthenticationPrincipal UserDetails userDetails,
                                            @Parameter(description = "ID of the no-show appointment to excuse") @PathVariable Long id,
                                            @Valid @RequestBody ReasonRequest request) {

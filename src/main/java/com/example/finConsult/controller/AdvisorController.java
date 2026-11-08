@@ -47,7 +47,6 @@ public class AdvisorController {
     })
     @PreAuthorize("hasRole('ADVISOR')") // wire admin later
     @PatchMapping("/me")
-    // CHANGED: typed response body
     public ResponseEntity<AdvisorResponse> updateAdvisor(@AuthenticationPrincipal UserDetails userDetails, @Valid @RequestBody UpdateAdvisorRequest updateAdvisorRequest) {
         User user = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.ok(mapper.toAdvisor(advisorService.updateAdvisor(user, updateAdvisorRequest)));
@@ -60,7 +59,6 @@ public class AdvisorController {
             @ApiResponse(responseCode = "404", description = "Advisor not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping("/{id}")
-    // CHANGED: typed response body
     public ResponseEntity<AdvisorResponse> getAdvisor(@Parameter(description = "ID of the advisor to fetch") @PathVariable Long id) {
         return ResponseEntity.ok(mapper.toAdvisor(advisorService.getById(id)));
     }
@@ -71,7 +69,6 @@ public class AdvisorController {
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping // can have specific advisors otherwise all
-    // CHANGED: typed response body
     public ResponseEntity<List<AdvisorResponse>> searchAdvisors(@Parameter(description = "Specialty to filter by; omit to return advisors of every specialty") @RequestParam(required = false) Specialty specialty) {
         List<Advisor> advisors = (specialty != null)
                 ? advisorService.findBySpecialty(specialty)

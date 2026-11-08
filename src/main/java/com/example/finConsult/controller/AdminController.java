@@ -60,7 +60,6 @@ public class AdminController {
     })
     @PostMapping("/advisors")
     @PreAuthorize("hasRole('ADMIN')")
-    // CHANGED: typed response body
     public ResponseEntity<AdvisorResponse> createAdvisor(@Valid @RequestBody AdvisorRequest request,
                                            @AuthenticationPrincipal UserDetails userDetails) {
         User admin = ((MyUserDetails) userDetails).getUser();
@@ -76,7 +75,6 @@ public class AdminController {
     })
     @GetMapping("/clients")
     @PreAuthorize("hasRole('ADMIN')")
-    // CHANGED: typed response body
     public ResponseEntity<List<UserSummaryResponse>> getActiveClients() {
         return ResponseEntity.ok(userService.getActiveClients());
     }
@@ -91,7 +89,6 @@ public class AdminController {
     })
     @PatchMapping("/users/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')") //restricted/protected api
-    // CHANGED: typed response body
     public ResponseEntity<MessageResponse> deactivateUser(@Parameter(description = "ID of the user to deactivate") @PathVariable Long id,
                                              @AuthenticationPrincipal UserDetails userDetails) {
         User admin = ((MyUserDetails) userDetails).getUser();
@@ -109,7 +106,6 @@ public class AdminController {
     })
     @PatchMapping("/advisors/{id}/deactivate")
     @PreAuthorize("hasRole('ADMIN')")
-    // CHANGED: typed response body
     public ResponseEntity<MessageResponse> deactivateAdvisor(@Parameter(description = "ID of the advisor to deactivate") @PathVariable Long id,
                                                 @Valid @RequestBody ReasonRequest request, @AuthenticationPrincipal UserDetails userDetails) {
         User admin = ((MyUserDetails) userDetails).getUser();

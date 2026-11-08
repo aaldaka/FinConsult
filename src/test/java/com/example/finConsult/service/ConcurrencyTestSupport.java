@@ -32,8 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Do NOT put @Transactional on a test class: every thread needs its own committed transaction.
  */
 @SpringBootTest
-@ActiveProfiles("test") // CHANGED: own test profile, so the dev DataSeeder does not run
-@TestPropertySource(locations = "classpath:test.properties") // CHANGED: test-only settings with env-variable overrides
+@ActiveProfiles("test")
+@TestPropertySource(locations = "classpath:test.properties")
 abstract class ConcurrencyTestSupport {
 
     @Autowired protected UserRepository userRepository;
@@ -122,13 +122,11 @@ abstract class ConcurrencyTestSupport {
         return userRepository.save(user);
     }
 
-    // CHANGED: finds an existing admin or creates one, so the tests do not depend on the DataSeeder
     protected User admin() {
         List<User> admins = userRepository.findByRole(UserRole.ADMIN);
         return admins.isEmpty() ? newUser(UserRole.ADMIN) : admins.get(0);
     }
 
-    // CHANGED: finds an active GENERAL advisor or creates one
     protected Advisor seededAdvisor() {
         return advisorRepository.findAll().stream()
                 .filter(a -> a.isActive() && a.getSpecialty() == Specialty.GENERAL)
@@ -143,7 +141,6 @@ abstract class ConcurrencyTestSupport {
                 });
     }
 
-    // CHANGED: finds an active service that needs no KYC or creates one
     protected ServiceType freeService() {
         return serviceTypeRepository.findAll().stream()
                 .filter(s -> s.isActive() && !s.isRequiresKyc())
@@ -158,7 +155,6 @@ abstract class ConcurrencyTestSupport {
                 });
     }
 
-    // CHANGED: an ACTIVE user with the given role, used when the database has no admin or advisor yet
     private User newUser(UserRole role) {
         User user = new User();
         user.setEmail("race-" + UUID.randomUUID() + "@test.com");
