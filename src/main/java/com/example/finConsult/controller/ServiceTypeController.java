@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * Read-only catalog of bookable service types, used by clients to pick a service
  * when booking an appointment.
@@ -33,7 +35,8 @@ public class ServiceTypeController {
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping
-    public ResponseEntity<?> listActive() {
+    // CHANGED: typed response body
+    public ResponseEntity<List<ServiceTypeResponse>> listActive() {
         return ResponseEntity.ok(serviceTypeService.getActiveServices());
     }
 }

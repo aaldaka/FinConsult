@@ -51,7 +51,8 @@ public class AvailabilitySlotController { //posting the slot
     })
     @PostMapping
     @PreAuthorize("hasRole('ADVISOR')") // admins have no advisor profile, so this was only ever a 404 for them
-    public ResponseEntity<?> createSlot(@AuthenticationPrincipal UserDetails userDetails, @Valid @RequestBody CreateSlotRequest request) {
+    // CHANGED: typed response body
+    public ResponseEntity<SlotResponse> createSlot(@AuthenticationPrincipal UserDetails userDetails, @Valid @RequestBody CreateSlotRequest request) {
         User user = ((MyUserDetails) userDetails).getUser();
         Advisor advisor = advisorService.getByUser(user);
 
@@ -69,7 +70,8 @@ public class AvailabilitySlotController { //posting the slot
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADVISOR')")
-    public ResponseEntity<?> deleteSlot(@AuthenticationPrincipal UserDetails userDetails,
+    // CHANGED: typed response body
+    public ResponseEntity<MessageResponse> deleteSlot(@AuthenticationPrincipal UserDetails userDetails,
                                          @Parameter(description = "ID of the slot to delete") @PathVariable Long id) {
         User user = ((MyUserDetails) userDetails).getUser();
         Advisor advisor = advisorService.getByUser(user);
@@ -85,7 +87,8 @@ public class AvailabilitySlotController { //posting the slot
             @ApiResponse(responseCode = "404", description = "Advisor not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping("/advisor/{advisorId}")
-    public ResponseEntity<?> getAvailableSlots(@Parameter(description = "ID of the advisor whose slots to list") @PathVariable Long advisorId) {
+    // CHANGED: typed response body
+    public ResponseEntity<List<SlotResponse>> getAvailableSlots(@Parameter(description = "ID of the advisor whose slots to list") @PathVariable Long advisorId) {
         List<AvailabilitySlot> slots = availabilitySlotService.getAvailableSlots(advisorId);
         return ResponseEntity.ok(slots.stream().map(mapper::toSlot).toList());
     }
@@ -99,7 +102,8 @@ public class AvailabilitySlotController { //posting the slot
     })
     @GetMapping("/mine")
     @PreAuthorize("hasRole('ADVISOR')")
-    public ResponseEntity<?> getMySlots(@AuthenticationPrincipal UserDetails userDetails) {
+    // CHANGED: typed response body
+    public ResponseEntity<List<SlotResponse>> getMySlots(@AuthenticationPrincipal UserDetails userDetails) {
         User user = ((MyUserDetails) userDetails).getUser();
         Advisor advisor = advisorService.getByUser(user);
 

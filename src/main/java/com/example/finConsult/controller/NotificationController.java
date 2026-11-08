@@ -22,6 +22,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
+
 /**
  * In-app notification listing/read-state endpoints, plus the SSE stream for
  * real-time push.
@@ -41,7 +43,8 @@ public class NotificationController {
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping("/mine")
-    public ResponseEntity<?> getMyNotifications(@AuthenticationPrincipal UserDetails userDetails) {
+    // CHANGED: typed response body
+    public ResponseEntity<List<NotificationResponse>> getMyNotifications(@AuthenticationPrincipal UserDetails userDetails) {
         User user = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.ok(notificationService.getMyNotifications(user));
     }
@@ -52,7 +55,8 @@ public class NotificationController {
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @GetMapping("/mine/unread")
-    public ResponseEntity<?> getMyUnreadNotifications(@AuthenticationPrincipal UserDetails userDetails) {
+    // CHANGED: typed response body
+    public ResponseEntity<List<NotificationResponse>> getMyUnreadNotifications(@AuthenticationPrincipal UserDetails userDetails) {
         User user = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.ok(notificationService.getMyUnreadNotifications(user));
     }
@@ -65,7 +69,8 @@ public class NotificationController {
             @ApiResponse(responseCode = "404", description = "Notification not found", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PatchMapping("/{id}/read")
-    public ResponseEntity<?> markAsRead(@AuthenticationPrincipal UserDetails userDetails,
+    // CHANGED: typed response body
+    public ResponseEntity<NotificationResponse> markAsRead(@AuthenticationPrincipal UserDetails userDetails,
                                          @Parameter(description = "ID of the notification to mark as read") @PathVariable Long id) {
         User user = ((MyUserDetails) userDetails).getUser();
         return ResponseEntity.ok(notificationService.markAsRead(id, user));
@@ -77,7 +82,8 @@ public class NotificationController {
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PatchMapping("/mine/read-all")
-    public ResponseEntity<?> markAllAsRead(@AuthenticationPrincipal UserDetails userDetails) {
+    // CHANGED: typed response body
+    public ResponseEntity<MessageResponse> markAllAsRead(@AuthenticationPrincipal UserDetails userDetails) {
         User user = ((MyUserDetails) userDetails).getUser();
         int count = notificationService.markAllAsRead(user);
         return ResponseEntity.ok(new MessageResponse(count + " notifications marked as read"));
