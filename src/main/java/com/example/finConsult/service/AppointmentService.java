@@ -46,6 +46,14 @@ public class AppointmentService {
         return appointment.getSlot().getStartTime().format(SLOT_TIME);
     }
 
+    private void recordIfNewlyBlacklisted(User client, int strikes) {
+        if (strikes == 3) {
+            auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
+                    mapper.nameOf(client) + " blacklisted after reaching " + strikes + " strikes");
+            log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), strikes);
+        }
+    }
+
     /** Rejects sort fields outside the allow-list so callers can't sort on an unindexed or sensitive column. */
     private void checkSort(Sort sort) { //validation
         for (Sort.Order o : sort) {
@@ -196,15 +204,10 @@ public class AppointmentService {
                     + (notes != null ? ", reason given: " + notes : "");
             User client = appointment.getClient();
             int strikes = userRepository.addStrike(client.getId());
-            boolean newlyBlacklisted = strikes == 3;   // just crossed the limit
 
             log.info("Strike added to client {} (now {} strikes)", client.getId(), strikes);
 
-            if (newlyBlacklisted) {
-                auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
-                        mapper.nameOf(client) + " blacklisted after reaching " + strikes + " strikes");
-                log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), strikes);
-            }
+            recordIfNewlyBlacklisted(client, strikes);
 
             notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
                     "You cancelled your appointment on " + slotTime(appointment)
@@ -265,7 +268,6 @@ public class AppointmentService {
 
         User client = appointment.getClient();
         int strikes = userRepository.addStrike(client.getId());
-        boolean newlyBlacklisted = strikes == 3;
 
         auditLogService.log(appointment.getAdvisor().getUser(), AuditAction.APPOINTMENT_NO_SHOW,
                 "Appointment", appointmentId, "Marked " + mapper.nameOf(client) + " as a no-show for "
@@ -273,11 +275,7 @@ public class AppointmentService {
 
         log.info("Appointment {} marked no-show by advisor {}", appointmentId, advisorId);
         log.info("Strike added to client {} (now {} strikes)", client.getId(), strikes);
-        if (newlyBlacklisted) {
-            auditLogService.log(client, AuditAction.CLIENT_BLACKLISTED, "User", client.getId(),
-                    mapper.nameOf(client) + " blacklisted after reaching " + strikes + " strikes");
-            log.warn("Client {} blacklisted after reaching {} strikes", client.getId(), strikes);
-        }
+        recordIfNewlyBlacklisted(client, strikes);
 
         notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
                 "You were marked as a no-show for your appointment on " + slotTime(appointment)
