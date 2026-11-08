@@ -4,9 +4,11 @@ import com.example.finConsult.model.User;
 import com.example.finConsult.model.response.ErrorResponse;
 import com.example.finConsult.model.response.MessageResponse;
 import com.example.finConsult.model.response.NotificationResponse;
+import com.example.finConsult.model.response.StreamTicketResponse;
 import com.example.finConsult.security.MyUserDetails;
 import com.example.finConsult.service.NotificationService;
 import com.example.finConsult.service.NotificationStreamService;
+import com.example.finConsult.service.StreamTicketService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -35,6 +37,7 @@ import java.util.List;
 public class NotificationController {
     private final NotificationService notificationService;
     private final NotificationStreamService streamService;
+    private final StreamTicketService streamTicketService;
 
 
     @Operation(summary = "List my notifications")
@@ -85,7 +88,20 @@ public class NotificationController {
         return ResponseEntity.ok(new MessageResponse(count + " notifications marked as read"));
     }
 
-    @Operation(summary = "Subscribe to real-time notifications (Server-Sent Events)")
+    @Operation(summary = "Get a single-use ticket to open the notification stream",
+            description = "The browser's EventSource cannot send an Authorization header. Call this with the JWT, then open GET /notifications/stream?ticket=... within 30 seconds. A ticket works once.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Ticket issued", content = @Content(schema = @Schema(implementation = StreamTicketResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PostMapping("/stream-ticket")
+    public ResponseEntity<StreamTicketResponse> createStreamTicket(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = ((MyUserDetails) userDetails).getUser();
+        return ResponseEntity.ok(new StreamTicketResponse(streamTicketService.issue(user.getEmail())));
+    }
+
+    @Operation(summary = "Subscribe to real-time notifications (Server-Sent Events)",
+            description = "Authenticated with ?ticket= from POST /notifications/stream-ticket (single use, 30 seconds)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "SSE stream opened"),
             @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))

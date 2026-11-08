@@ -2,6 +2,7 @@ package com.example.finConsult.security;
 
 import com.example.finConsult.model.User;
 import com.example.finConsult.model.enums.UserStatus;
+import com.example.finConsult.service.StreamTicketService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,18 +32,13 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     @Autowired
     private JWTUtils jwtUtils;
 
+    @Autowired
+    private StreamTicketService streamTicketService;
+
     private String parseJwt(HttpServletRequest request) { //sending an authorization header
         String headerAuth = request.getHeader("Authorization");
         if (StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
             return headerAuth.substring(7, headerAuth.length()); //remove it we need the remaining parts
-        }
-        //sse cant send headers, only the stream can use ?token=
-        if ("/notifications/stream".equals(request.getRequestURI())) {
-            String queryToken = request.getParameter("token");
-            if (StringUtils.hasText(queryToken)) {
-                log.debug("Using query token for the notification stream");
-                return queryToken;
-            }
         }
         return null;
     }
@@ -51,9 +47,16 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
+            String username = null;
             String jwt = parseJwt(request);
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
-                String username = jwtUtils.getUserNameFromJwtToken(jwt);
+                username = jwtUtils.getUserNameFromJwtToken(jwt);
+            } else if (jwt == null && "/notifications/stream".equals(request.getRequestURI())) {
+                //sse cant send headers, so the stream takes a one time ticket instead of the token
+                username = streamTicketService.consume(request.getParameter("ticket")).orElse(null);
+            }
+
+            if (username != null) {
                 MyUserDetails userDetails = (MyUserDetails) this.myUserDetailsService.loadUserByUsername(username);
                 User user = userDetails.getUser();
 
