@@ -54,6 +54,10 @@ export interface MessageResponse {
   msg: string
 }
 
+export interface StreamTicketResponse {
+  ticket: string
+}
+
 export interface LoginRequest {
   email: string
   password: string

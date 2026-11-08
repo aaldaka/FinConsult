@@ -556,7 +556,8 @@ To try protected endpoints: call `POST /auth/login`, copy the `token` from the r
 | GET | `/notifications/mine/unread` | List own unread notifications | Private |
 | PATCH | `/notifications/{id}/read` | Mark a notification as read | Private |
 | PATCH | `/notifications/mine/read-all` | Mark all own notifications as read | Private |
-| GET | `/notifications/stream` | Subscribe to real-time notifications (SSE) | Private |
+| POST | `/notifications/stream-ticket` | Get a single-use ticket (valid 30 seconds) to open the stream | Private |
+| GET | `/notifications/stream?ticket=` | Subscribe to real-time notifications (SSE) with that ticket | Ticket |
 | POST | `/admin/advisors` | Create an advisor account | Admin |
 | GET | `/admin/clients` | List clients that are not deactivated (for the deactivate picker) | Admin |
 | PATCH | `/admin/users/{id}/deactivate` | Deactivate a user and cancel their appointments | Admin |
@@ -571,7 +572,7 @@ To try protected endpoints: call `POST /auth/login`, copy the `token` from the r
 * **New response fields:** `KycDocResponse` has `detectedType` and `flagged` (and `flagReason` for admins only); `CertificateResponse` has `status` and `detectedType`.
 * **Status codes:** booking and slot creation return `201 Created`. Every operation that can lose a race documents `409 Conflict`: booking, application submit/approve/reject, KYC upload/approve/reject, and appointment confirm/cancel/no-show/excuse.
 * **New rules:** approving an application while a certificate is `PROCESSING` returns `400`; requests from blacklisted or deactivated users are no longer authenticated, so they are rejected on their next request, even with a valid token.
-* **SSE:** `/notifications/stream` also accepts the JWT as a `?token=` query parameter, because the browser's `EventSource` cannot send headers. Only this endpoint accepts it.
+* **SSE:** the browser's `EventSource` cannot send an `Authorization` header, and a JWT in the URL would end up in logs and history. So the client calls `POST /notifications/stream-ticket` with its JWT and opens `/notifications/stream?ticket=...` with the returned ticket. A ticket is random (32 bytes), works once and expires after 30 seconds, so every reconnect asks for a new one. The stream no longer accepts `?token=`.
 
 ### Error responses
 
@@ -658,6 +659,7 @@ All seeded accounts use the password `Password123!`.
 
 * **Uploaded files are stored on the local disk** (`uploads/`). A production setup would use object storage.
 * **No refresh tokens.** A JWT is valid until it expires and then the user must log in again. (Since Project 3, blacklisted and deactivated users are blocked on their next request.)
+* **Stream tickets are kept in memory.** That works for one instance of the app. With several instances a ticket issued by one would be unknown to the others, so they would need a shared store such as Redis (planned for Project 4).
 * **Seeded KYC documents are placeholders.** They are approved records without real files, so they cannot be downloaded.
 * **Privacy of personal documents.** KYC documents and certificates contain personal data and must never be uploaded to a public scanner like VirusTotal, so the app only sends each file's SHA-256 hash. A safer production option is AWS GuardDuty Malware Protection for S3, which scans files inside our own cloud account.
 
