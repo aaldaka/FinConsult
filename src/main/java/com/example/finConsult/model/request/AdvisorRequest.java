@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -18,9 +18,9 @@ public class AdvisorRequest {
     @Email
     private String email;
 
-    @Schema(description = "Password, minimum 8 characters", example = "Str0ngP@ss!")
+    @Schema(description = "Password: at least 8 characters with an uppercase letter, a lowercase letter, a digit and a special character", example = "Str0ngP@ss!")
     @NotBlank
-    @Size(min = 8, message = "Password must be at least 8 characters")
+    @Pattern(regexp = PasswordRules.REGEX, message = PasswordRules.MESSAGE)
     private String password;
 
     @Schema(description = "First name", example = "John")

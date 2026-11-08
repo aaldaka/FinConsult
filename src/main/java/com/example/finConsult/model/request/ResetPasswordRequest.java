@@ -2,7 +2,7 @@ package com.example.finConsult.model.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,8 +14,8 @@ public class ResetPasswordRequest {
     @NotBlank
     private String token;
 
-    @Schema(description = "New password, minimum 8 characters", example = "Str0ngP@ss!")
+    @Schema(description = "New password: at least 8 characters with an uppercase letter, a lowercase letter, a digit and a special character", example = "Str0ngP@ss!")
     @NotBlank
-    @Size(min = 8)
+    @Pattern(regexp = PasswordRules.REGEX, message = PasswordRules.MESSAGE)
     private String newPassword;
 }
