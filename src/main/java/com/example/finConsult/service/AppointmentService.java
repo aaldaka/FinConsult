@@ -176,13 +176,8 @@ public class AppointmentService {
         boolean isClient = appointment.getClient().getId().equals(cancelledBy.getId());
         boolean isAdvisor = appointment.getAdvisor().getUser().getId().equals(cancelledBy.getId());
 
-        if (!isClient && !isAdvisor) {
-            throw new InvalidRequest("You are not authorized to cancel this appointment");
-        }
-
-        if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW) || appointment.getStatus().equals(AppointmentStatus.COMPLETED)){
-            throw new InvalidRequest("Only pending or confirmed appointments can be cancelled");
-        }
+        requireParticipant(isClient, isAdvisor);
+        requireCancellable(appointment);
 
         appointment.setStatus(AppointmentStatus.CANCELLED);
         appointment.setCancelledAt(LocalDateTime.now());
@@ -202,16 +197,7 @@ public class AppointmentService {
             shouldRelease = LocalDateTime.now().isBefore(appointment.getSlot().getStartTime().minusHours(LATE_CANCEL_RELEASE_CUTOFF_HOURS));
             reason = "Cancelled by Client less than the accepted cancellation window"
                     + (notes != null ? ", reason given: " + notes : "");
-            User client = appointment.getClient();
-            int strikes = userRepository.addStrike(client.getId());
-
-            log.info("Strike added to client {} (now {} strikes)", client.getId(), strikes);
-
-            recordIfNewlyBlacklisted(client, strikes);
-
-            notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
-                    "You cancelled your appointment on " + slotTime(appointment)
-                            + " less than 24 hours before it started. Strikes: " + strikes + "/3", appointment);
+            addLateCancellationStrike(appointment);
         }
 
         appointment.setCancellationReason(reason);
@@ -222,14 +208,46 @@ public class AppointmentService {
                 appointmentId, cancelledBy.getId(), isAdvisor ? "advisor" : "client", withinStrikeWindow, shouldRelease);
 
         if (shouldRelease) {
-            AvailabilitySlot slot = appointment.getSlot();
-            slot.setStatus(SlotStatus.AVAILABLE);
-            availabilitySlotRepository.save(slot);
+            releaseSlot(appointment);
         }
 
         User whoToNotify = isClient ? appointment.getAdvisor().getUser() : appointment.getClient(); //notify the other party of the cancellation
         notificationService.create(whoToNotify, NotificationType.APPOINTMENT_CANCELLED,
                 mapper.nameOf(cancelledBy) + " cancelled the appointment on " + slotTime(appointment) + ". Reason: " + reason, appointment);
+    }
+
+    // only the client or the advisor of the appointment can cancel it
+    private void requireParticipant(boolean isClient, boolean isAdvisor) {
+        if (!isClient && !isAdvisor) {
+            throw new InvalidRequest("You are not authorized to cancel this appointment");
+        }
+    }
+
+    // shared by the normal cancel and the admin cancel
+    private void requireCancellable(Appointment appointment) {
+        if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW) || appointment.getStatus().equals(AppointmentStatus.COMPLETED)) {
+            throw new InvalidRequest("Only pending or confirmed appointments can be cancelled");
+        }
+    }
+
+    // strike for a late client cancellation, the blacklist check and the message to the client
+    private void addLateCancellationStrike(Appointment appointment) {
+        User client = appointment.getClient();
+        int strikes = userRepository.addStrike(client.getId());
+
+        log.info("Strike added to client {} (now {} strikes)", client.getId(), strikes);
+
+        recordIfNewlyBlacklisted(client, strikes);
+
+        notificationService.create(client, NotificationType.APPOINTMENT_NO_SHOW,
+                "You cancelled your appointment on " + slotTime(appointment)
+                        + " less than 24 hours before it started. Strikes: " + strikes + "/3", appointment);
+    }
+
+    private void releaseSlot(Appointment appointment) {
+        AvailabilitySlot slot = appointment.getSlot();
+        slot.setStatus(SlotStatus.AVAILABLE);
+        availabilitySlotRepository.save(slot);
     }
 
     @Transactional(readOnly = true)
@@ -326,9 +344,7 @@ public class AppointmentService {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new InformationNotFound("Appointment not found"));
 
-        if (appointment.getStatus().equals(AppointmentStatus.CANCELLED) || appointment.getStatus().equals(AppointmentStatus.NO_SHOW) || appointment.getStatus().equals(AppointmentStatus.COMPLETED)) {
-            throw new InvalidRequest("Only pending or confirmed appointments can be cancelled");
-        }
+        requireCancellable(appointment);
 
         if (reason == null || reason.isBlank()) {
             throw new InvalidRequest("A reason is required");
