@@ -6,8 +6,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
-@ActiveProfiles("dev")
-@TestPropertySource(properties = "spring.datasource.url=jdbc:postgresql://localhost:5432/finconsult_test")
+@ActiveProfiles("test") // CHANGED: own test profile, so the dev DataSeeder does not run
+@TestPropertySource(locations = "classpath:test.properties") // CHANGED: test-only settings with env-variable overrides
 class FinConsultApplicationTests {
 
 	@Test

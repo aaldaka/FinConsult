@@ -32,8 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Do NOT put @Transactional on a test class: every thread needs its own committed transaction.
  */
 @SpringBootTest
-@ActiveProfiles("dev")
-@TestPropertySource(properties = "spring.datasource.url=jdbc:postgresql://localhost:5432/finconsult_test")
+@ActiveProfiles("test") // CHANGED: own test profile, so the dev DataSeeder does not run
+@TestPropertySource(locations = "classpath:test.properties") // CHANGED: test-only settings with env-variable overrides
 abstract class ConcurrencyTestSupport {
 
     @Autowired protected UserRepository userRepository;
@@ -122,20 +122,50 @@ abstract class ConcurrencyTestSupport {
         return userRepository.save(user);
     }
 
+    // CHANGED: finds an existing admin or creates one, so the tests do not depend on the DataSeeder
     protected User admin() {
-        return userRepository.findByRole(UserRole.ADMIN).get(0);   // created by the DataSeeder
+        List<User> admins = userRepository.findByRole(UserRole.ADMIN);
+        return admins.isEmpty() ? newUser(UserRole.ADMIN) : admins.get(0);
     }
 
+    // CHANGED: finds an active GENERAL advisor or creates one
     protected Advisor seededAdvisor() {
         return advisorRepository.findAll().stream()
                 .filter(a -> a.isActive() && a.getSpecialty() == Specialty.GENERAL)
-                .findFirst().orElseThrow();
+                .findFirst()
+                .orElseGet(() -> {
+                    Advisor advisor = new Advisor();
+                    advisor.setUser(newUser(UserRole.ADVISOR));
+                    advisor.setTitle("Test advisor");
+                    advisor.setSpecialty(Specialty.GENERAL);
+                    advisor.setActive(true);
+                    return advisorRepository.save(advisor);
+                });
     }
 
+    // CHANGED: finds an active service that needs no KYC or creates one
     protected ServiceType freeService() {
         return serviceTypeRepository.findAll().stream()
                 .filter(s -> s.isActive() && !s.isRequiresKyc())
-                .findFirst().orElseThrow();
+                .findFirst()
+                .orElseGet(() -> {
+                    ServiceType service = new ServiceType();
+                    service.setName("Race test service " + UUID.randomUUID());
+                    service.setDurationMinutes(30);
+                    service.setRequiresKyc(false);
+                    service.setActive(true);
+                    return serviceTypeRepository.save(service);
+                });
+    }
+
+    // CHANGED: an ACTIVE user with the given role, used when the database has no admin or advisor yet
+    private User newUser(UserRole role) {
+        User user = new User();
+        user.setEmail("race-" + UUID.randomUUID() + "@test.com");
+        user.setPassword("not-used");
+        user.setRole(role);
+        user.setUserStatus(UserStatus.ACTIVE);
+        return userRepository.save(user);
     }
 
     // an AVAILABLE slot far in the future (random day, so repeated runs never clash)
