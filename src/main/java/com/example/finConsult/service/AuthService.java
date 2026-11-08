@@ -15,7 +15,7 @@ import com.example.finConsult.repository.ProfileRepository;
 import com.example.finConsult.repository.UserRepository;
 import com.example.finConsult.repository.VerificationTokenRepository;
 import com.example.finConsult.security.JWTUtils;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;

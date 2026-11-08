@@ -30,11 +30,13 @@ public class NotificationService {
     private final ResponseMapper mapper;
 
     /** @return all of the user's notifications */
+    @Transactional(readOnly = true)
     public List<NotificationResponse> getMyNotifications(User user) {
         return notificationRepository.findByUser(user).stream().map(mapper::toNotification).toList();
     }
 
     /** @return the user's unread notifications */
+    @Transactional(readOnly = true)
     public List<NotificationResponse> getMyUnreadNotifications(User user) {
         return notificationRepository.findByUserAndIsReadFalse(user).stream().map(mapper::toNotification).toList();
     }

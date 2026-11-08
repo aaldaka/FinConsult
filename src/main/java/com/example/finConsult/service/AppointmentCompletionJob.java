@@ -3,7 +3,7 @@ package com.example.finConsult.service;
 import com.example.finConsult.model.Appointment;
 import com.example.finConsult.model.enums.AppointmentStatus;
 import com.example.finConsult.repository.AppointmentRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

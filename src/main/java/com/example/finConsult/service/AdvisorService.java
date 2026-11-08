@@ -74,20 +74,24 @@ public class AdvisorService {
         return saved;
     }
 
+    @Transactional(readOnly = true)
     public Advisor getByUser(User user) {
         return advisorRepository.findByUser(user)
                 .orElseThrow(() -> new InformationNotFound("Advisor profile not found"));
     }
 
+    @Transactional(readOnly = true)
     public Advisor getById(Long advisorId) {
         return advisorRepository.findById(advisorId)
                 .orElseThrow(() -> new InformationNotFound("Advisor not found"));
     }
 
+    @Transactional(readOnly = true)
     public List<Advisor> findBySpecialty(Specialty specialty) {
         return advisorRepository.findBySpecialtyAndActiveTrue(specialty);
     }
 
+    @Transactional(readOnly = true)
     public List<Advisor> findAllActive() {
         return advisorRepository.findByActiveTrue();
     }

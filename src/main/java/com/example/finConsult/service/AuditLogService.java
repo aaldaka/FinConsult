@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Records and retrieves audit log entries for sensitive actions across the app
@@ -23,6 +24,7 @@ public class AuditLogService {
     private final AuditLogRepository auditLogRepository;
     private final ResponseMapper mapper;
 
+    @Transactional(readOnly = true)
     public Page<AuditLogResponse> getLogs(Pageable p, AuditAction action){ // by default its 20 entries per page. 1st page no prev link
         Page<AuditLog> logs = (action == null)
                 ? auditLogRepository.findAll(p)

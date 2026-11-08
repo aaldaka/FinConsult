@@ -8,7 +8,7 @@ import com.example.finConsult.model.enums.SlotStatus;
 import com.example.finConsult.model.request.CreateSlotRequest;
 import com.example.finConsult.repository.AdvisorRepository;
 import com.example.finConsult.repository.AvailabilitySlotRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -79,6 +79,7 @@ public class AvailabilitySlotService { // advisors post their new open slots
     }
 
     /** @return the advisor's available slots, or empty if the advisor is inactive */
+    @Transactional(readOnly = true)
     public List<AvailabilitySlot> getAvailableSlots(Long advisorId) {
         Advisor advisor = advisorRepository.findById(advisorId)
                 .orElseThrow(() -> new InformationNotFound("Advisor not found"));
@@ -91,6 +92,7 @@ public class AvailabilitySlotService { // advisors post their new open slots
     }
 
     /** @return every slot the advisor has posted, regardless of status */
+    @Transactional(readOnly = true)
     public List<AvailabilitySlot> getMySlots(Long advisorId) {
         Advisor advisor = advisorRepository.findById(advisorId)
                 .orElseThrow(() -> new InformationNotFound("Advisor not found"));

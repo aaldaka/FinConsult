@@ -9,7 +9,7 @@ import com.example.finConsult.model.enums.AuditAction;
 import com.example.finConsult.model.request.UpdateProfileRequest;
 import com.example.finConsult.model.response.ProfileUpdateResponse;
 import com.example.finConsult.repository.ProfileRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +32,7 @@ public class ProfileService {
     private final AuditLogService auditLogService;
     private final ResponseMapper mapper;
 
+    @Transactional(readOnly = true)
     public ProfileUpdateResponse getMyProfile(User user) {
         Profile profile = getProfileOrThrow(user);
         return mapper.toProfile(profile);

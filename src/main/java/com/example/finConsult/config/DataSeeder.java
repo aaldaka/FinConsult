@@ -3,7 +3,7 @@ package com.example.finConsult.config;
 import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.*;
 import com.example.finConsult.repository.*;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;

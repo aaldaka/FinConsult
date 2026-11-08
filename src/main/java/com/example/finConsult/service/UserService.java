@@ -12,7 +12,7 @@ import com.example.finConsult.model.enums.UserStatus;
 import com.example.finConsult.model.response.UserSummaryResponse;
 import com.example.finConsult.repository.AppointmentRepository;
 import com.example.finConsult.repository.UserRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +33,7 @@ public class UserService {
     private final ResponseMapper mapper;
 
     /** @return clients that are not deactivated, for the admin deactivate picker */
+    @Transactional(readOnly = true)
     public List<UserSummaryResponse> getActiveClients() {
         return userRepository.findByRoleAndUserStatusNotOrderByIdAsc(UserRole.CLIENT, UserStatus.INACTIVE).stream()
                 .map(u -> new UserSummaryResponse(u.getId(), mapper.nameOf(u), u.getEmail()))

@@ -13,7 +13,7 @@ import com.example.finConsult.model.request.AdvisorApplicationRequest;
 import com.example.finConsult.model.response.AdvisorApplicationResponse;
 import com.example.finConsult.model.response.MyApplicationsResponse;
 import com.example.finConsult.repository.*;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -136,6 +136,7 @@ public class AdvisorApplicationService {
         return mapper.toApplication(application, certificateRepository.findByApplication(application));
     }
 
+    @Transactional(readOnly = true)
     public MyApplicationsResponse getMyApplications(User applicant) {
         List<AdvisorApplicationResponse> applications = applicationRepository.findByUser(applicant).stream()
                 .map(a -> mapper.toApplication(a, certificateRepository.findByApplication(a)))
@@ -143,6 +144,7 @@ public class AdvisorApplicationService {
         return new MyApplicationsResponse(applications, applicationRepository.countByUser(applicant), MAX_APPLICATIONS);
     }
 
+    @Transactional(readOnly = true)
     public Page<AdvisorApplicationResponse> getByStatus(KycStatus status, Pageable pageable) {
         return applicationRepository.findByStatus(status, pageable)
                 .map(a -> mapper.toApplication(a, certificateRepository.findByApplication(a)));
@@ -215,6 +217,7 @@ public class AdvisorApplicationService {
         return mapper.toApplication(application, certificateRepository.findByApplication(application));
     }
 
+    @Transactional(readOnly = true)
     public ApplicationCertificate getCertificate(Long certificateId) {
         return certificateRepository.findById(certificateId)
                 .orElseThrow(() -> new InformationNotFound("Certificate not found"));

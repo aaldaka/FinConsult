@@ -7,7 +7,7 @@ import com.example.finConsult.mapper.ResponseMapper;
 import com.example.finConsult.model.*;
 import com.example.finConsult.model.enums.*;
 import com.example.finConsult.repository.*;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
@@ -232,11 +232,13 @@ public class AppointmentService {
                 mapper.nameOf(cancelledBy) + " cancelled the appointment on " + slotTime(appointment) + ". Reason: " + reason, appointment);
     }
 
+    @Transactional(readOnly = true)
     public List<Appointment> getClientAppointments(User client, AppointmentStatus status, Sort sortBy) {
         checkSort(sortBy);
         return (status == null) ? appointmentRepository.findByClient(client, sortBy) : appointmentRepository.findByClientAndStatus(client, status, sortBy);
     }
 
+    @Transactional(readOnly = true)
     public List<Appointment> getAdvisorAppointments(Long advisorId, AppointmentStatus status, Sort sortBy) {
         checkSort(sortBy);
         Advisor advisor = advisorRepository.findById(advisorId)
@@ -351,6 +353,7 @@ public class AppointmentService {
     }
 
     /** All no-show appointments for the admin review, latest first, excused ones included. */
+    @Transactional(readOnly = true)
     public List<Appointment> getNoShows() {
         return appointmentRepository.findByStatus(AppointmentStatus.NO_SHOW, Sort.by("slot.startTime").descending());
     }

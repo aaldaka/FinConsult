@@ -11,7 +11,7 @@ import com.example.finConsult.model.enums.KycStatus;
 import com.example.finConsult.model.enums.NotificationType;
 import com.example.finConsult.model.response.KycDocResponse;
 import com.example.finConsult.repository.KycDocumentRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
@@ -179,10 +179,12 @@ public class KycService {
         return mapper.toKyc(doc);
     }
 
+    @Transactional(readOnly = true)
     public List<KycDocResponse> getMyDocuments(User user) {
         return kycDocumentRepository.findByUser(user).stream().map(mapper::toKyc).toList();
     }
 
+    @Transactional(readOnly = true)
     public Page<KycDocResponse> getByStatus(KycStatus status, Pageable p, DocumentType docType) {
         Page<KycDocument> docs = (docType == null)
                 ? kycDocumentRepository.findByStatus(status, p)
@@ -234,6 +236,7 @@ public class KycService {
     }
 
 
+    @Transactional(readOnly = true)
     public KycDocument getDocument(Long id) {
         return kycDocumentRepository.findById(id)
                 .orElseThrow(() -> new InformationNotFound("KYC document not found"));
