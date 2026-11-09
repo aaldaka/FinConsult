@@ -8,7 +8,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,7 +18,7 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
-@Table(name = "notifications", indexes = @Index(name = "idx_notifications_user_id", columnList = "user_id"))
+@Table(name = "notifications")
 public class Notification {
 
     @Id
@@ -33,8 +32,6 @@ public class Notification {
     @Enumerated(EnumType.STRING)
     private NotificationType type;
 
-    // longer than the default 255 because a review reason can be that long on its own
-    @Column(length = 1000)
     private String message;
 
     @Column
