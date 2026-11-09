@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -47,7 +46,14 @@ class AppointmentConcurrencyTest extends ConcurrencyTestSupport {
     @RepeatedTest(10)
     void overlappingSlotsCreatedAtOnce() throws Exception {
         Advisor advisor = seededAdvisor();
-        LocalDateTime start = LocalDateTime.now().plusYears(5).plusDays(ThreadLocalRandom.current().nextInt(1, 4000));
+        // a start time nobody has used: the day after the advisor's latest slot ends, or after now + 5 years if that is later.
+        // A random day can already hold a slot from an earlier run, and then both new requests are refused
+        LocalDateTime latestEnd = availabilitySlotRepository.findByAdvisor(advisor).stream()
+                .map(AvailabilitySlot::getEndTime)
+                .max(LocalDateTime::compareTo)
+                .orElse(LocalDateTime.MIN);
+        LocalDateTime floor = LocalDateTime.now().plusYears(5);
+        LocalDateTime start = (latestEnd.isAfter(floor) ? latestEnd : floor).plusDays(1);
 
         CreateSlotRequest first = new CreateSlotRequest();
         first.setStartingTime(start);
