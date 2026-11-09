@@ -57,7 +57,9 @@ public class SecurityConfiguration {
                                 "/auth/register",
                                 "/auth/forget-password",
                                 "/auth/reset-password",
-                                "/auth/verify-email"
+                                "/auth/verify-email",
+                                "/uploads/profile_pictures/**", //no need for checks for accessing pics
+                                "/default.jpg"
                         ).permitAll()
                         .anyRequest().authenticated());
 
