@@ -26,6 +26,7 @@ public class SecurityConfiguration {
 
     private final JwtRequestFilter jwtRequestFilter;
     private final RateLimitFilter rateLimitFilter;
+    private final InternalKeyFilter internalKeyFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -61,11 +62,13 @@ public class SecurityConfiguration {
                                 "/uploads/profile_pictures/**", //no need for checks for accessing pics
                                 "/default.jpg"
                         ).permitAll()
+                        .requestMatchers("/internal/**").hasAuthority(InternalKeyFilter.AUTHORITY) //only the internal key grants it
                         .anyRequest().authenticated());
 
         //inserting the jwt filtering into the chain somewhere before giving an OK to the system to accept the user
         http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(rateLimitFilter, jwtRequestFilter.getClass());
+        http.addFilterBefore(internalKeyFilter, jwtRequestFilter.getClass());
         return http.build();
     }
 }
