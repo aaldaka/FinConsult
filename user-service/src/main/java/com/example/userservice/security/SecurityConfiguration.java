@@ -25,6 +25,7 @@ import java.util.List;
 public class SecurityConfiguration {
 
     private final JwtRequestFilter jwtRequestFilter;
+    private final RateLimitFilter rateLimitFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -42,7 +43,6 @@ public class SecurityConfiguration {
         return source;
     }
 
-    // the public auth routes (login, register, ...) are added here together with their controllers
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
@@ -52,10 +52,18 @@ public class SecurityConfiguration {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers(
+                                "/auth/login",
+                                "/auth/register",
+                                "/auth/forget-password",
+                                "/auth/reset-password",
+                                "/auth/verify-email"
+                        ).permitAll()
                         .anyRequest().authenticated());
 
-        //inserting the jwt filtering into the chain before giving an OK to the system to accept the user
+        //inserting the jwt filtering into the chain somewhere before giving an OK to the system to accept the user
         http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(rateLimitFilter, jwtRequestFilter.getClass());
         return http.build();
     }
 }
