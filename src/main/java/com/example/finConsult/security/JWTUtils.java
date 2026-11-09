@@ -1,5 +1,6 @@
 package com.example.finConsult.security;
 
+import com.example.finConsult.model.User;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -29,12 +30,15 @@ public class JWTUtils {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateToken(String email) {
+    // userId and role are for other services, which have no users table to look the caller up in
+    public String generateToken(User user) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
-                .subject(email)
+                .subject(user.getEmail())
+                .claim("userId", user.getId())
+                .claim("role", user.getRole().name())
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())

@@ -183,7 +183,7 @@ public class AuthService {
         Profile userProfile = profileRepository.findByUser(user)
                 .orElseThrow(() -> new InformationIncorrect("User does not exist."));
 
-        String token = jwtUtils.generateToken(user.getEmail());
+        String token = jwtUtils.generateToken(user);
 
         log.info("User {} logged in with role {}", user.getId(), user.getRole());
         return new Response(user.getId(), user.getEmail(), userProfile.getFirstName(), userProfile.getLastName(), user.getRole(), token);

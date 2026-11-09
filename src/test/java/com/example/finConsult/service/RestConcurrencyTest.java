@@ -35,7 +35,7 @@ class RestConcurrencyTest extends ConcurrencyTestSupport {
 
     private int book(User client, Long slotId, Long serviceId) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/appointments/book/" + slotId))
-                .header("Authorization", "Bearer " + jwtUtils.generateToken(client.getEmail()))
+                .header("Authorization", "Bearer " + jwtUtils.generateToken(client))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString("{\"serviceTypeId\": " + serviceId + "}"))
                 .build();
