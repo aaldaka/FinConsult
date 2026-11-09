@@ -15,6 +15,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
     List<User> findByRole(UserRole role);
     List<User> findByRoleAndUserStatusNotOrderByIdAsc(UserRole role, UserStatus status);
+    List<User> findByRoleAndUserStatusOrderByIdAsc(UserRole role, UserStatus status);
+
+    // read straight from the db, because the strike updates below bypass the persistence context
+    @Query(value = "SELECT blacklisted FROM users WHERE id = :id", nativeQuery = true)
+    boolean isBlacklisted(@Param("id") Long id);
 
     // db controls the strike
     @Query(value = """
