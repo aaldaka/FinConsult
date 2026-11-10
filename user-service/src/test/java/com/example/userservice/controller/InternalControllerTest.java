@@ -139,6 +139,8 @@ class InternalControllerTest {
                 delete("/internal/users/" + id + "/strikes"),
                 get("/internal/users/admins"),
                 get("/internal/advisors/1"),
+                get("/internal/advisors/by-user/" + id),
+                post("/internal/advisors/lookup").contentType(MediaType.APPLICATION_JSON).content("[1]"),
                 post("/internal/advisors/promote").contentType(MediaType.APPLICATION_JSON).content(promoteBody));
 
         for (MockHttpServletRequestBuilder request : requests) {
@@ -147,6 +149,8 @@ class InternalControllerTest {
         }
         for (MockHttpServletRequestBuilder request : List.of(
                 get("/internal/users/" + id),
+                get("/internal/advisors/by-user/" + id),
+                post("/internal/advisors/lookup").contentType(MediaType.APPLICATION_JSON).content("[1]"),
                 post("/internal/users/" + id + "/strikes"),
                 post("/internal/advisors/promote").contentType(MediaType.APPLICATION_JSON).content(promoteBody))) {
             mockMvc.perform(request.header(KEY_HEADER, "not-the-key")).andExpect(status().isForbidden());
@@ -329,12 +333,93 @@ class InternalControllerTest {
 
         mockMvc.perform(withKey(get("/internal/advisors/" + advisor.getId())))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(advisor.getId().intValue()))
                 .andExpect(jsonPath("$.exists").value(true))
                 .andExpect(jsonPath("$.active").value(true))
                 .andExpect(jsonPath("$.userId").value(user.getId().intValue()))
                 .andExpect(jsonPath("$.displayName").value("Internal Tester"))
                 .andExpect(jsonPath("$.title").value("Planner"))
                 .andExpect(jsonPath("$.specialty").value("GENERAL"));
+    }
+
+    @Test
+    void getAdvisorByUserReturnsTheSameInfoPlusTheAdvisorId() throws Exception {
+        User user = createUser(UserRole.ADVISOR, UserStatus.ACTIVE, true);
+        Advisor advisor = createAdvisorFor(user);
+
+        mockMvc.perform(withKey(get("/internal/advisors/by-user/" + user.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(advisor.getId().intValue()))
+                .andExpect(jsonPath("$.exists").value(true))
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.userId").value(user.getId().intValue()))
+                .andExpect(jsonPath("$.displayName").value("Internal Tester"))
+                .andExpect(jsonPath("$.title").value("Planner"))
+                .andExpect(jsonPath("$.specialty").value("GENERAL"));
+    }
+
+    @Test
+    void getAdvisorByUserIs404ForAUserWithoutAnAdvisorRowAndForAnUnknownUser() throws Exception {
+        User client = createClient();
+
+        mockMvc.perform(withKey(get("/internal/advisors/by-user/" + client.getId())))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Advisor not found"));
+        mockMvc.perform(withKey(get("/internal/advisors/by-user/" + Long.MAX_VALUE)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void lookupMapsAdvisorIdsToInfoAndLeavesUnknownIdsOut() throws Exception {
+        User firstUser = createUser(UserRole.ADVISOR, UserStatus.ACTIVE, true);
+        Advisor first = createAdvisorFor(firstUser);
+        User secondUser = createUser(UserRole.ADVISOR, UserStatus.INACTIVE, true);
+        Advisor second = createAdvisorFor(secondUser);
+        jdbcTemplate.update("UPDATE advisors SET active = false WHERE id = ?", second.getId());
+        jdbcTemplate.update("UPDATE profiles SET first_name = 'Second' WHERE user_id = ?", secondUser.getId());
+
+        mockMvc.perform(withKey(post("/internal/advisors/lookup"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[" + first.getId() + ", " + second.getId() + ", " + Long.MAX_VALUE + "]"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$['" + first.getId() + "'].id").value(first.getId().intValue()))
+                .andExpect(jsonPath("$['" + first.getId() + "'].userId").value(firstUser.getId().intValue()))
+                .andExpect(jsonPath("$['" + first.getId() + "'].active").value(true))
+                .andExpect(jsonPath("$['" + first.getId() + "'].displayName").value("Internal Tester"))
+                .andExpect(jsonPath("$['" + first.getId() + "'].title").value("Planner"))
+                .andExpect(jsonPath("$['" + first.getId() + "'].specialty").value("GENERAL"))
+                .andExpect(jsonPath("$['" + second.getId() + "'].id").value(second.getId().intValue()))
+                .andExpect(jsonPath("$['" + second.getId() + "'].active").value(false))
+                .andExpect(jsonPath("$['" + second.getId() + "'].displayName").value("Second Tester"))
+                .andExpect(jsonPath("$['" + Long.MAX_VALUE + "']").doesNotExist());
+    }
+
+    @Test
+    void lookupWithAnEmptyListIsAnEmptyMapAndABadBodyIsA400() throws Exception {
+        mockMvc.perform(withKey(post("/internal/advisors/lookup")).contentType(MediaType.APPLICATION_JSON).content("[]"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mockMvc.perform(withKey(post("/internal/advisors/lookup")).contentType(MediaType.APPLICATION_JSON).content("{\"ids\": [1]}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void theNewAdvisorEndpointsNeedTheKeyAndAUserTokenDoesNotHelp() throws Exception {
+        User user = createUser(UserRole.ADVISOR, UserStatus.ACTIVE, true);
+        Advisor advisor = createAdvisorFor(user);
+        String bearer = "Bearer " + jwtUtils.generateToken(user);
+
+        mockMvc.perform(get("/internal/advisors/by-user/" + user.getId())).andExpect(status().isForbidden());
+        mockMvc.perform(get("/internal/advisors/by-user/" + user.getId()).header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/internal/advisors/lookup").contentType(MediaType.APPLICATION_JSON).content("[" + advisor.getId() + "]")
+                        .header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/internal/advisors/lookup").contentType(MediaType.APPLICATION_JSON).content("[" + advisor.getId() + "]")
+                        .header(KEY_HEADER, "not-the-key"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
