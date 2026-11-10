@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+import java.util.Map;
+
 /** Advisor lookup and promotion for the other services. Protected by the internal key, see InternalKeyFilter. */
 @RestController
 @RequestMapping("/internal/advisors")
@@ -26,6 +29,16 @@ public class InternalAdvisorController {
     @GetMapping("/{id}")
     public InternalAdvisorResponse getAdvisor(@PathVariable Long id) {
         return internalService.getAdvisor(id);
+    }
+
+    @GetMapping("/by-user/{userId}")
+    public InternalAdvisorResponse getAdvisorByUser(@PathVariable Long userId) {
+        return internalService.getAdvisorByUser(userId);
+    }
+
+    @PostMapping("/lookup")
+    public Map<Long, InternalAdvisorResponse> lookupAdvisors(@RequestBody List<Long> ids) {
+        return internalService.lookupAdvisors(ids);
     }
 
     @PostMapping("/promote")

@@ -11,6 +11,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 public class InternalAdvisorResponse {
+    private Long id;
     private boolean exists;
     private boolean active;
     private Long userId;

@@ -55,12 +55,16 @@ public class InternalService {
         if (ids == null || ids.isEmpty()) {
             return names;
         }
-        List<User> users = userRepository.findAllById(ids.stream().filter(Objects::nonNull).toList());
+        return namesOf(userRepository.findAllById(ids.stream().filter(Objects::nonNull).toList()));
+    }
+
+    // user id to display name for these users, with one profile query. Same wording as ResponseMapper.nameOf
+    private Map<Long, String> namesOf(List<User> users) {
+        Map<Long, String> names = new HashMap<>();
         Map<Long, Profile> profiles = profileRepository.findByUserIn(users).stream()
                 .collect(Collectors.toMap(p -> p.getUser().getId(), Function.identity()));
         for (User user : users) {
             Profile p = profiles.get(user.getId());
-            // same wording as ResponseMapper.nameOf
             names.put(user.getId(), p == null ? "Unknown" : p.getFirstName() + " " + p.getLastName());
         }
         return names;
@@ -95,8 +99,34 @@ public class InternalService {
     @Transactional(readOnly = true)
     public InternalAdvisorResponse getAdvisor(Long id) {
         Advisor advisor = advisorRepository.findById(id).orElseThrow(() -> new InformationNotFound("Advisor not found"));
-        return new InternalAdvisorResponse(true, advisor.isActive(), advisor.getUser().getId(),
-                mapper.nameOf(advisor.getUser()), advisor.getTitle(), advisor.getSpecialty());
+        return toInternalAdvisor(advisor, mapper.nameOf(advisor.getUser()));
+    }
+
+    /** Same info as {@link #getAdvisor}, found through the advisor's user. 404 when that user has no advisor row. */
+    @Transactional(readOnly = true)
+    public InternalAdvisorResponse getAdvisorByUser(Long userId) {
+        Advisor advisor = advisorRepository.findByUserId(userId).orElseThrow(() -> new InformationNotFound("Advisor not found"));
+        return toInternalAdvisor(advisor, mapper.nameOf(advisor.getUser()));
+    }
+
+    /** advisor id to info; ids that do not exist are left out. Names come from one profile query. */
+    @Transactional(readOnly = true)
+    public Map<Long, InternalAdvisorResponse> lookupAdvisors(Collection<Long> ids) {
+        Map<Long, InternalAdvisorResponse> result = new HashMap<>();
+        if (ids == null || ids.isEmpty()) {
+            return result;
+        }
+        List<Advisor> advisors = advisorRepository.findAllById(ids.stream().filter(Objects::nonNull).toList());
+        Map<Long, String> names = namesOf(advisors.stream().map(Advisor::getUser).toList());
+        for (Advisor advisor : advisors) {
+            result.put(advisor.getId(), toInternalAdvisor(advisor, names.get(advisor.getUser().getId())));
+        }
+        return result;
+    }
+
+    private InternalAdvisorResponse toInternalAdvisor(Advisor advisor, String displayName) {
+        return new InternalAdvisorResponse(advisor.getId(), true, advisor.isActive(), advisor.getUser().getId(),
+                displayName, advisor.getTitle(), advisor.getSpecialty());
     }
 
     /**
