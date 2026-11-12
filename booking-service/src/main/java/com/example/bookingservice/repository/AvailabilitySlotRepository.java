@@ -15,6 +15,10 @@ public interface AvailabilitySlotRepository extends JpaRepository<AvailabilitySl
     List<AvailabilitySlot> findByAdvisorIdAndStatus(Long advisorId, SlotStatus status);
     List<AvailabilitySlot> findByAdvisorId(Long advisorId); //checking any slot overlaps
 
+    // a plain value, so no slot entity is left in the persistence context before the locked read
+    @Query("select s.advisorId from AvailabilitySlot s where s.id = :id")
+    Optional<Long> findAdvisorIdById(@Param("id") Long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from AvailabilitySlot s where s.id = :id")
     Optional<AvailabilitySlot> findByIdForUpdate(@Param("id") Long id);
