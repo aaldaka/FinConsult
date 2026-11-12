@@ -62,6 +62,7 @@ public class SlotTestData {
 
     public void deleteCreated() {
         for (Long id : createdSlotIds) {
+            jdbcTemplate.update("DELETE FROM appointments WHERE slot_id = ?", id); // only those booked on this test's slots
             jdbcTemplate.update("DELETE FROM availability_slots WHERE id = ?", id);
         }
         createdSlotIds.clear();

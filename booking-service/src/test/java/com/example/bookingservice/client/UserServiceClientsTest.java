@@ -46,6 +46,7 @@ class UserServiceClientsTest {
     private MockRestServiceServer server;
     private RestAdvisorClient advisors;
     private RestUserClient users;
+    private RestStrikeClient strikes;
 
     @BeforeEach
     void setUp() {
@@ -54,6 +55,42 @@ class UserServiceClientsTest {
         RestClient restClient = builder.build();
         advisors = new RestAdvisorClient(restClient);
         users = new RestUserClient(restClient);
+        strikes = new RestStrikeClient(restClient);
+    }
+
+    // strikes
+
+    @Test
+    void addStrikePostsWithTheKeyAndReadsTheResult() {
+        server.expect(requestTo(BASE + "/internal/users/12/strikes"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("X-Internal-Key", KEY))
+                .andRespond(withSuccess("{\"noShowStrikes\": 3, \"blacklisted\": true, \"somethingNew\": 1}", MediaType.APPLICATION_JSON));
+
+        assertEquals(new StrikeResult(3, true), strikes.addStrike(12L));
+        server.verify();
+    }
+
+    @Test
+    void removeStrikeDeletesWithTheKeyAndReadsTheResult() {
+        server.expect(requestTo(BASE + "/internal/users/12/strikes"))
+                .andExpect(method(HttpMethod.DELETE))
+                .andExpect(header("X-Internal-Key", KEY))
+                .andRespond(withSuccess("{\"noShowStrikes\": 1, \"blacklisted\": false}", MediaType.APPLICATION_JSON));
+
+        assertEquals(new StrikeResult(1, false), strikes.removeStrike(12L));
+        server.verify();
+    }
+
+    @Test
+    void strikeCallsMapNotFoundAndFailuresLikeTheOtherCalls() {
+        server.expect(requestTo(BASE + "/internal/users/9/strikes")).andRespond(withStatus(HttpStatus.NOT_FOUND));
+        server.expect(requestTo(BASE + "/internal/users/10/strikes")).andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+        server.expect(requestTo(BASE + "/internal/users/11/strikes")).andRespond(withSuccess()); // no body at all
+
+        assertThrows(InformationNotFound.class, () -> strikes.addStrike(9L));
+        assertThrows(ServiceUnavailable.class, () -> strikes.addStrike(10L));
+        assertThrows(ServiceUnavailable.class, () -> strikes.removeStrike(11L));
     }
 
     // the calls
