@@ -21,6 +21,14 @@ public class RestUserClient implements UserClient {
     }
 
     @Override
+    public UserInfo getById(Long userId) {
+        return UserServiceCalls.call(() -> restClient.get()
+                .uri("/internal/users/{id}", userId)
+                .retrieve()
+                .body(UserInfo.class), "User not found");
+    }
+
+    @Override
     public Map<Long, String> names(Collection<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             return Map.of();

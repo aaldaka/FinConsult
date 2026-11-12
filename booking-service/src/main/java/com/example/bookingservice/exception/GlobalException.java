@@ -57,6 +57,11 @@ public class GlobalException { // adds meta data like http codes to the existing
         return build(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage(), request);
     }
 
+    @ExceptionHandler(AccountNotActive.class) // the user service says the account is blacklisted or not active
+    public ResponseEntity<ErrorResponse> handleAccountNotActive(AccountNotActive e, HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, e.getMessage(), request);
+    }
+
     @ExceptionHandler(AuthorizationDeniedException.class) // return proper code when hitting resrticted api
     public ResponseEntity<ErrorResponse> handleAuthorizationDenied(AuthorizationDeniedException e, HttpServletRequest request) {
         return build(HttpStatus.FORBIDDEN, "You do not have permission to access this resource", request);
