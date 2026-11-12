@@ -113,6 +113,31 @@ class UserServiceClientsTest {
     }
 
     @Test
+    void getUserSendsTheKeyAndReadsTheStatusFields() {
+        server.expect(requestTo(BASE + "/internal/users/12"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("X-Internal-Key", KEY))
+                .andRespond(withSuccess("""
+                        {"id": 12, "email": "maryam@test.com", "role": "CLIENT", "status": "ACTIVE",
+                         "blacklisted": true, "noShowStrikes": 3, "displayName": "Maryam Hasan", "somethingNew": 1}
+                        """, MediaType.APPLICATION_JSON));
+
+        UserInfo user = users.getById(12L);
+
+        assertEquals(new UserInfo(12L, "maryam@test.com", "CLIENT", "ACTIVE", true, 3, "Maryam Hasan"), user);
+        server.verify();
+    }
+
+    @Test
+    void getUserNotFoundAndFailuresMapLikeTheOtherCalls() {
+        server.expect(requestTo(BASE + "/internal/users/9")).andRespond(withStatus(HttpStatus.NOT_FOUND));
+        server.expect(requestTo(BASE + "/internal/users/10")).andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        assertEquals("User not found", assertThrows(InformationNotFound.class, () -> users.getById(9L)).getMessage());
+        assertThrows(ServiceUnavailable.class, () -> users.getById(10L));
+    }
+
+    @Test
     void anEmptyListOfIdsIsAnEmptyMapWithoutACall() {
         assertTrue(advisors.lookup(List.of()).isEmpty());
         assertTrue(users.names(List.of()).isEmpty());
