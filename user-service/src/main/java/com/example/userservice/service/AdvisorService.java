@@ -116,10 +116,12 @@ public class AdvisorService {
 
         auditRecorder.record(admin.getId(), AuditAction.ADVISOR_DEACTIVATED, "Advisor", advisorId, "Reason: " + reason);
 
-        int cancelled = appointmentCancellation.cancelUpcomingOfAdvisor(advisorId, advisorUser.getId(),
-                "Advisor is no longer available: " + reason);
-
-        log.info("Advisor {} deactivated by admin {} ({} appointments cancelled)", advisorId, admin.getId(), cancelled);
+        Long advisorUserId = advisorUser.getId();
+        Long adminId = admin.getId();
+        AfterCommit.run(() -> { // the call to booking runs only once the deactivation is saved
+            int cancelled = appointmentCancellation.cancelUpcomingOfAdvisor(advisorId, advisorUserId,"Advisor is no longer available: " + reason);
+            log.info("Advisor {} deactivated by admin {} ({} appointments cancelled)", advisorId, adminId, cancelled);
+        });
     }
 
     /** Partial update, only non-null fields are applied. */

@@ -54,11 +54,14 @@ public class UserService {
         userRepository.save(user);
         auditRecorder.record(admin.getId(), AuditAction.USER_DEACTIVATED, "User", userId, "Account deactivated");
 
-        int cancelledCount = 0;
+        Long adminId = admin.getId();
         if (user.getRole() == UserRole.CLIENT) {
-            cancelledCount = appointmentCancellation.cancelUpcomingOfClient(userId, admin.getId(), "Client account was deactivated");
+            AfterCommit.run(() -> { // the call to booking runs only once the deactivation is saved
+                int cancelledCount = appointmentCancellation.cancelUpcomingOfClient(userId, adminId, "Client account was deactivated");
+                log.info("User {} deactivated by admin {} ({} appointments cancelled)", userId, adminId, cancelledCount);
+            });
+        } else {
+            log.info("User {} deactivated by admin {} (0 appointments cancelled)", userId, adminId);
         }
-
-        log.info("User {} deactivated by admin {} ({} appointments cancelled)", userId, admin.getId(), cancelledCount);
     }
 }
