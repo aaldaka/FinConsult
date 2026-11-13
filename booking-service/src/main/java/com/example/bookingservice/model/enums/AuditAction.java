@@ -4,5 +4,7 @@ public enum AuditAction { // only the actions booking records, the audit log own
     APPOINTMENT_BOOKED,
     APPOINTMENT_CONFIRMED,
     APPOINTMENT_CANCELLED,
+    APPOINTMENT_NO_SHOW,
+    NO_SHOW_EXCUSED,
     CLIENT_BLACKLISTED
 }

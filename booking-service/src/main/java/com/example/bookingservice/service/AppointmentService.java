@@ -24,6 +24,7 @@ import com.example.bookingservice.repository.AppointmentRepository;
 import com.example.bookingservice.repository.AvailabilitySlotRepository;
 import com.example.bookingservice.repository.ServiceTypeRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -33,8 +34,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-// book, confirm and cancel. The calls to the user service and the stubs never run inside a database transaction:
+// book, confirm, cancel, no-show, excuse and the listings. The calls to the user service and the stubs never run inside a database transaction:
 // they happen before it opens (account status, advisor) or after it has committed (names, strikes, notifications, audit)
 @Slf4j
 @Service
@@ -42,6 +44,8 @@ public class AppointmentService {
 
     private static final int CANCELLATION_STRIKE_WINDOW_HOURS = 24;
     private static final int LATE_CANCEL_RELEASE_CUTOFF_HOURS = 6;
+    private static final int NO_SHOW_GRACE_MINUTES = 20;
+    private static final Set<String> SORTABLE = Set.of("createdAt", "status", "slot.startTime");
     private static final DateTimeFormatter SLOT_TIME = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm");
 
     private final AppointmentRepository appointmentRepository;
@@ -346,5 +350,153 @@ public class AppointmentService {
         safely("Strike notification", () -> notificationPublisher.publish(clientId, NotificationType.APPOINTMENT_NO_SHOW,
                 "You cancelled your appointment on " + slotTime(appointment)
                         + " less than 24 hours before it started. Strikes: " + result.noShowStrikes() + "/3", appointmentId));
+    }
+
+    // only the owning advisor, only on a confirmed appointment, and only once the 20 minute grace has passed
+    public Appointment markNoShow(Long userId, Long appointmentId) {
+        accountStatusService.requireActive(userId);
+        AdvisorInfo advisor = advisorClient.getByUserId(userId); // 404 if the caller has no advisor profile
+
+        Appointment marked = transactionTemplate.execute(status -> {
+            Appointment appointment = appointmentRepository.findById(appointmentId)
+                    .orElseThrow(() -> new InformationNotFound("Appointment not found"));
+
+            if (!appointment.getAdvisorId().equals(advisor.id())) {
+                throw new InvalidRequest("You can only mark your own appointments");
+            }
+
+            if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+                throw new InvalidRequest("Only confirmed appointments can be marked as no-show");
+            }
+
+            if (appointment.getSlot().getStartTime().plusMinutes(NO_SHOW_GRACE_MINUTES).isAfter(LocalDateTime.now())) {
+                throw new InvalidRequest("Cannot mark No Show until 20 minutes has passed from the appointment start time");
+            }
+
+            appointment.setStatus(AppointmentStatus.NO_SHOW);
+            return appointmentRepository.save(appointment);
+        });
+
+        afterNoShow(marked, userId);
+        return marked;
+    }
+
+    // a no-show always adds a strike (it is never the advisor's fault). The user service adds it after the commit, so if
+    // that call fails the no-show stays, the failure is logged with both ids and the strike can be added by hand
+    private void afterNoShow(Appointment appointment, Long advisorUserId) {
+        Long clientId = appointment.getClientId();
+        Long appointmentId = appointment.getId();
+
+        StrikeResult result = null;
+        try {
+            result = strikeClient.addStrike(clientId);
+            log.info("Strike added to client {} (now {} strikes)", clientId, result.noShowStrikes());
+        } catch (RuntimeException e) {
+            log.error("Could not add the no-show strike for client {} on appointment {}, the no-show is kept",
+                    clientId, appointmentId, e);
+        }
+        StrikeResult strike = result;
+
+        String clientName = nameFrom(namesOrEmpty(clientId), clientId);
+        String strikes = strike == null ? "" : "; strikes: " + strike.noShowStrikes() + "/3";
+        safely("No-show audit", () -> auditRecorder.record(AuditAction.APPOINTMENT_NO_SHOW, advisorUserId, appointmentId,
+                "Marked " + clientName + " as a no-show for " + slotTime(appointment) + strikes));
+
+        if (strike != null && strike.blacklisted()) {
+            safely("Blacklist audit", () -> auditRecorder.record(AuditAction.CLIENT_BLACKLISTED, clientId, clientId,
+                    clientName + " blacklisted after reaching " + strike.noShowStrikes() + " strikes"));
+            log.warn("Client {} blacklisted after reaching {} strikes", clientId, strike.noShowStrikes());
+        }
+
+        safely("No-show notification", () -> notificationPublisher.publish(clientId, NotificationType.APPOINTMENT_NO_SHOW,
+                "You were marked as a no-show for your appointment on " + slotTime(appointment)
+                        + (strike == null ? "." : ". Strikes: " + strike.noShowStrikes() + "/3"), appointmentId));
+
+        log.info("Appointment {} marked no-show by advisor user {}", appointmentId, advisorUserId);
+    }
+
+    // reverses a no-show: the reason is required, and a no-show can only be excused once
+    public Appointment excuseNoShow(Long adminId, Long appointmentId, String reason) {
+        accountStatusService.requireActive(adminId);
+
+        Appointment excused = transactionTemplate.execute(status -> {
+            Appointment appointment = appointmentRepository.findById(appointmentId)
+                    .orElseThrow(() -> new InformationNotFound("Appointment not found"));
+
+            if (reason == null || reason.isBlank()) {
+                throw new InvalidRequest("A reason is required");
+            }
+
+            if (appointment.getStatus() != AppointmentStatus.NO_SHOW) {
+                throw new InvalidRequest("Appointment was not marked as a No-Show");
+            }
+
+            if (appointment.isExcused()) {
+                throw new InvalidRequest("This no-show was already excused");
+            }
+
+            appointment.setExcused(true);
+            appointment.setExcuseReason(reason);
+            return appointmentRepository.save(appointment);
+        });
+
+        afterExcuse(excused, adminId, reason);
+        return excused;
+    }
+
+    // the strike is removed by the user service after the commit, with the same failure handling as the strike that
+    // is added: the excuse stays and the failure is logged so the strike can be removed by hand
+    private void afterExcuse(Appointment appointment, Long adminId, String reason) {
+        Long clientId = appointment.getClientId();
+        Long appointmentId = appointment.getId();
+
+        StrikeResult result = null;
+        try {
+            result = strikeClient.removeStrike(clientId);
+            log.info("Strike removed from client {} (now {} strikes)", clientId, result.noShowStrikes());
+        } catch (RuntimeException e) {
+            log.error("Could not remove the strike of client {} for the excused no-show on appointment {}, the excuse is kept",
+                    clientId, appointmentId, e);
+        }
+        StrikeResult strike = result;
+
+        String clientName = nameFrom(namesOrEmpty(clientId), clientId);
+        String strikes = strike == null ? "" : "; strikes: " + strike.noShowStrikes() + "/3";
+        safely("Excuse audit", () -> auditRecorder.record(AuditAction.NO_SHOW_EXCUSED, adminId, appointmentId,
+                "Excused " + clientName + "'s no-show: " + reason + strikes));
+        safely("Excuse notification", () -> notificationPublisher.publish(clientId, NotificationType.APPOINTMENT_NO_SHOW,
+                "Your no-show was excused. Reason: " + reason, appointmentId));
+
+        log.info("No-show excused for appointment {} by admin {}", appointmentId, adminId);
+    }
+
+    // rejects sort fields outside the allow-list, so callers cannot sort on a column that is not meant to be sorted on
+    private void checkSort(Sort sort) {
+        for (Sort.Order order : sort) {
+            if (!SORTABLE.contains(order.getProperty())) {
+                throw new InvalidRequest("Cannot sort by " + order.getProperty() + ". Allowed: " + SORTABLE);
+            }
+        }
+    }
+
+    public List<Appointment> getClientAppointments(Long clientId, AppointmentStatus status, Sort sortBy) {
+        checkSort(sortBy);
+        return status == null
+                ? appointmentRepository.findByClientId(clientId, sortBy)
+                : appointmentRepository.findByClientIdAndStatus(clientId, status, sortBy);
+    }
+
+    // the advisor id comes from the user service, a caller without an advisor profile is a 404
+    public List<Appointment> getAdvisorAppointments(Long userId, AppointmentStatus status, Sort sortBy) {
+        checkSort(sortBy);
+        AdvisorInfo advisor = advisorClient.getByUserId(userId);
+        return status == null
+                ? appointmentRepository.findByAdvisorId(advisor.id(), sortBy)
+                : appointmentRepository.findByAdvisorIdAndStatus(advisor.id(), status, sortBy);
+    }
+
+    // every no-show for the admin review, latest first, excused ones included
+    public List<Appointment> getNoShows() {
+        return appointmentRepository.findByStatus(AppointmentStatus.NO_SHOW, Sort.by("slot.startTime").descending());
     }
 }
