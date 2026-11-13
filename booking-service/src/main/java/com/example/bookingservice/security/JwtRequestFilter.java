@@ -22,6 +22,12 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
     private final JWTUtils jwtUtils;
 
+    // /internal/** is opened by the internal key only, a user token plays no part there
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return InternalKeyFilter.isInternalPath(request);
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {

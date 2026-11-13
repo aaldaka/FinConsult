@@ -25,6 +25,7 @@ import java.util.List;
 public class SecurityConfiguration {
 
     private final JwtRequestFilter jwtRequestFilter;
+    private final InternalKeyFilter internalKeyFilter;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -55,9 +56,11 @@ public class SecurityConfiguration {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/internal/**").hasAuthority(InternalKeyFilter.AUTHORITY) // only the internal key grants it
                         .anyRequest().authenticated());
 
         http.addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(internalKeyFilter, JwtRequestFilter.class);
         return http.build();
     }
 }
