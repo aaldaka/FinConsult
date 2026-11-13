@@ -3,8 +3,8 @@ package com.example.userservice.integration;
 /**
  * Cancels appointments. Appointments belong to the booking side, so this service only asks for it.
  * In the main app, deactivating a user or an advisor cancelled their upcoming (pending and confirmed)
- * appointments, freed the slots and notified the other side. Until this is connected to the booking
- * service, the implementation only logs.
+ * appointments, freed the slots and notified the other side. RestAppointmentCancellation asks the booking
+ * service to do it.
  */
 public interface AppointmentCancellation {
 
