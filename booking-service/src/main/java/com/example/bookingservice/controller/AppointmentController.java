@@ -2,6 +2,7 @@ package com.example.bookingservice.controller;
 
 import com.example.bookingservice.mapper.AppointmentAssembler;
 import com.example.bookingservice.model.Appointment;
+import com.example.bookingservice.model.enums.AppointmentStatus;
 import com.example.bookingservice.model.request.BookAppointmentRequest;
 import com.example.bookingservice.model.request.ReasonRequest;
 import com.example.bookingservice.model.response.AppointmentResponse;
@@ -10,16 +11,22 @@ import com.example.bookingservice.security.AuthenticatedUser;
 import com.example.bookingservice.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/appointments")
@@ -49,5 +56,34 @@ public class AppointmentController {
                                                              @Valid @RequestBody ReasonRequest request) {
         appointmentService.cancelAppointment(id, user.userId(), request.getReason());
         return ResponseEntity.ok(new MessageResponse("Appointment cancelled"));
+    }
+
+    @GetMapping("/mine") // createdAt, newest first, when no sort is given
+    public ResponseEntity<List<AppointmentResponse>> getMyAppointments(@AuthenticationPrincipal AuthenticatedUser user,
+                                                                       @RequestParam(required = false) AppointmentStatus status,
+                                                                       @SortDefault(sort = "createdAt", direction = Sort.Direction.DESC) Sort sortBy) {
+        List<Appointment> appointments = "ADVISOR".equals(user.role())
+                ? appointmentService.getAdvisorAppointments(user.userId(), status, sortBy)
+                : appointmentService.getClientAppointments(user.userId(), status, sortBy);
+        return ResponseEntity.ok(assembler.many(appointments));
+    }
+
+    @GetMapping("/no-shows")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<AppointmentResponse>> getNoShows() {
+        return ResponseEntity.ok(assembler.many(appointmentService.getNoShows()));
+    }
+
+    @PatchMapping("/{id}/no-show")
+    @PreAuthorize("hasRole('ADVISOR')")
+    public ResponseEntity<AppointmentResponse> markNoShow(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long id) {
+        return ResponseEntity.ok(assembler.one(appointmentService.markNoShow(user.userId(), id)));
+    }
+
+    @PatchMapping("/{id}/excuse")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AppointmentResponse> excuseNoShow(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long id,
+                                                            @Valid @RequestBody ReasonRequest request) {
+        return ResponseEntity.ok(assembler.one(appointmentService.excuseNoShow(user.userId(), id, request.getReason())));
     }
 }
