@@ -1,5 +1,7 @@
 package com.example.documentservice.service;
 
+import com.example.documentservice.client.UserClient;
+import com.example.documentservice.client.UserSummary;
 import com.example.documentservice.exception.InformationNotFound;
 import com.example.documentservice.integration.AdminNotifier;
 import com.example.documentservice.integration.CheckEventPublisher;
@@ -43,12 +45,14 @@ public class DocumentProcessor {
     private final Executor executor;
     private final AdminNotifier adminNotifier;
     private final VirusTotalService virusTotalService;
+    private final UserClient userClient;
     private final long checkDelayMs;
 
     public DocumentProcessor(ApplicationCertificateRepository certificateRepository, KycDocumentRepository kycDocumentRepository,
                              FileStorageService fileStorageService, CheckEventPublisher checkEvents,
                              @Qualifier("docExecutor") Executor executor, AdminNotifier adminNotifier,
-                             VirusTotalService virusTotalService, @Value("${kyc.check-delay-ms:0}") long checkDelayMs) {
+                             VirusTotalService virusTotalService, UserClient userClient,
+                             @Value("${kyc.check-delay-ms:0}") long checkDelayMs) {
         this.certificateRepository = certificateRepository;
         this.kycDocumentRepository = kycDocumentRepository;
         this.fileStorageService = fileStorageService;
@@ -56,11 +60,20 @@ public class DocumentProcessor {
         this.executor = executor;
         this.adminNotifier = adminNotifier;
         this.virusTotalService = virusTotalService;
+        this.userClient = userClient;
         this.checkDelayMs = checkDelayMs;
     }
 
-    // the user's name is not known here yet, the user service lookup comes with the KYC endpoints
+    // only used in the admins' message, so a failed lookup falls back to the id instead of breaking the check
     private String nameOf(Long userId) {
+        try {
+            UserSummary user = userClient.lookup(List.of(userId)).get(userId);
+            if (user != null && user.displayName() != null) {
+                return user.displayName();
+            }
+        } catch (RuntimeException e) {
+            log.warn("Could not fetch the name of user {} for the admins' message: {}", userId, e.getMessage());
+        }
         return "user " + userId;
     }
 
