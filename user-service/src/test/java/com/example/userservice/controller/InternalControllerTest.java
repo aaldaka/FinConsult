@@ -31,6 +31,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
@@ -547,5 +549,67 @@ class InternalControllerTest {
         // nothing was promoted by the rejected calls
         assertEquals(UserRole.CLIENT, reload(client).getRole());
         assertTrue(advisorRepository.findByUser(client).isEmpty());
+    }
+
+    // user lookup
+
+    @Test
+    void userLookupMapsIdsToEmailAndDisplayNameAndLeavesUnknownIdsOut() throws Exception {
+        User first = createClient();
+        User noProfile = createUser(UserRole.CLIENT, UserStatus.ACTIVE, false);
+
+        mockMvc.perform(withKey(post("/internal/users/lookup"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[" + first.getId() + ", " + noProfile.getId() + ", " + Long.MAX_VALUE + "]"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$['" + first.getId() + "'].email").value(first.getEmail()))
+                .andExpect(jsonPath("$['" + first.getId() + "'].displayName").value("Internal Tester"))
+                .andExpect(jsonPath("$['" + noProfile.getId() + "'].email").value(noProfile.getEmail()))
+                .andExpect(jsonPath("$['" + noProfile.getId() + "'].displayName").value("Unknown"))
+                .andExpect(jsonPath("$['" + Long.MAX_VALUE + "']").doesNotExist())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void userLookupWithAnEmptyListIsAnEmptyMapAndABadBodyIsA400() throws Exception {
+        mockMvc.perform(withKey(post("/internal/users/lookup")).contentType(MediaType.APPLICATION_JSON).content("[]"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mockMvc.perform(withKey(post("/internal/users/lookup")).contentType(MediaType.APPLICATION_JSON).content("{\"ids\": [1]}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void userLookupOverTheCapIsA400() throws Exception {
+        String ids = LongStream.rangeClosed(1, 1001).mapToObj(String::valueOf)
+                .collect(Collectors.joining(",", "[", "]"));
+
+        mockMvc.perform(withKey(post("/internal/users/lookup")).contentType(MediaType.APPLICATION_JSON).content(ids))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("At most 1000 ids can be looked up at once"));
+
+        String atTheCap = LongStream.rangeClosed(1, 1000).mapToObj(String::valueOf)
+                .collect(Collectors.joining(",", "[", "]"));
+        mockMvc.perform(withKey(post("/internal/users/lookup")).contentType(MediaType.APPLICATION_JSON).content(atTheCap))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void userLookupNeedsTheKeyAndAUserTokenDoesNotHelp() throws Exception {
+        User client = createClient();
+        String body = "[" + client.getId() + "]";
+
+        mockMvc.perform(post("/internal/users/lookup").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/internal/users/lookup").contentType(MediaType.APPLICATION_JSON).content(body)
+                        .header(KEY_HEADER, "not-the-key"))
+                .andExpect(status().isForbidden());
+        for (UserRole role : UserRole.values()) {
+            User caller = createUser(role, UserStatus.ACTIVE, true);
+            mockMvc.perform(post("/internal/users/lookup").contentType(MediaType.APPLICATION_JSON).content(body)
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtUtils.generateToken(caller)))
+                    .andExpect(status().isForbidden());
+        }
     }
 }
