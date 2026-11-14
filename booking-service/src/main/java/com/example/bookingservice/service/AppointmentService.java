@@ -34,6 +34,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 // book, confirm, cancel, no-show, excuse and the listings. The calls to the user service and the stubs never run inside a database transaction:
@@ -115,10 +116,11 @@ public class AppointmentService {
         Long advisorId = availabilitySlotRepository.findAdvisorIdById(slotId)
                 .orElseThrow(() -> new InformationNotFound("Slot not found"));
         AdvisorInfo advisor = advisorClient.getById(advisorId);
+        KycAnswer kyc = askKycBeforeTheTransaction(clientId, serviceId);
 
         Appointment booked;
         try {
-            booked = transactionTemplate.execute(status -> bookInTransaction(clientId, slotId, serviceId, advisor));
+            booked = transactionTemplate.execute(status -> bookInTransaction(clientId, slotId, serviceId, advisor, kyc));
         } catch (DataIntegrityViolationException e) { // the unique index on active appointments, the backstop for a double booking
             log.warn("Client {} refused: slot {} already has an active appointment", clientId, slotId);
             throw new SlotUnavailable("This slot is no longer available");
@@ -128,7 +130,21 @@ public class AppointmentService {
         return booked;
     }
 
-    private Appointment bookInTransaction(Long clientId, Long slotId, Long serviceId, AdvisorInfo advisor) {
+    private record KycAnswer(DocumentType askedFor, boolean approved) {}
+
+    // the KYC check is an http call to the document service, so it is asked here, before the transaction opens, and
+    // only when the service needs KYC. The answer is used inside the transaction at the same point as before, so the
+    // order of the checks and their messages do not change. A document service that is down is a 503, never a yes
+    private KycAnswer askKycBeforeTheTransaction(Long clientId, Long serviceId) {
+        ServiceType serviceType = serviceTypeRepository.findById(serviceId).orElse(null);
+        if (serviceType == null || !serviceType.isRequiresKyc()) {
+            return null; // nothing to ask, an unknown service is still a 404 inside the transaction
+        }
+        DocumentType needed = serviceType.getRequiredDocumentType();
+        return new KycAnswer(needed, kycCheck.isApproved(clientId, needed));
+    }
+
+    private Appointment bookInTransaction(Long clientId, Long slotId, Long serviceId, AdvisorInfo advisor, KycAnswer kyc) {
         AvailabilitySlot slot = availabilitySlotRepository.findByIdForUpdate(slotId)
                 .orElseThrow(() -> new InformationNotFound("Slot not found"));
 
@@ -161,7 +177,9 @@ public class AppointmentService {
 
         if (serviceType.isRequiresKyc()) { // a null type means any approved document
             DocumentType needed = serviceType.getRequiredDocumentType();
-            if (!kycCheck.isApproved(clientId, needed)) {
+            // fails closed if the service's requirement changed after the answer was asked for
+            boolean approved = kyc != null && Objects.equals(kyc.askedFor(), needed) && kyc.approved();
+            if (!approved) {
                 log.warn("Booking rejected: missing KYC (client {}, service {})", clientId, serviceId);
                 throw new InvalidRequest(needed == null ? "This service requires an approved KYC document" : "This service requires an approved " + needed + " document");
             }
