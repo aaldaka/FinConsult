@@ -1,6 +1,7 @@
 package com.example.userservice.controller;
 
 import com.example.userservice.model.response.InternalAdminResponse;
+import com.example.userservice.model.response.InternalUserLookupResponse;
 import com.example.userservice.model.response.InternalUserResponse;
 import com.example.userservice.model.response.StrikeResponse;
 import com.example.userservice.service.InternalService;
@@ -32,6 +33,11 @@ public class InternalUserController {
     @PostMapping("/names")
     public Map<Long, String> getNames(@RequestBody List<Long> ids) {
         return internalService.getNames(ids);
+    }
+
+    @PostMapping("/lookup")
+    public Map<Long, InternalUserLookupResponse> lookupUsers(@RequestBody List<Long> ids) {
+        return internalService.lookupUsers(ids);
     }
 
     @PostMapping("/{id}/strikes")

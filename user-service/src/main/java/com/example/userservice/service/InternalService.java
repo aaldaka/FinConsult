@@ -1,6 +1,7 @@
 package com.example.userservice.service;
 
 import com.example.userservice.exception.InformationNotFound;
+import com.example.userservice.exception.InvalidRequest;
 import com.example.userservice.exception.NotEligible;
 import com.example.userservice.mapper.ResponseMapper;
 import com.example.userservice.model.Advisor;
@@ -11,6 +12,7 @@ import com.example.userservice.model.enums.UserStatus;
 import com.example.userservice.model.request.PromoteAdvisorRequest;
 import com.example.userservice.model.response.InternalAdminResponse;
 import com.example.userservice.model.response.InternalAdvisorResponse;
+import com.example.userservice.model.response.InternalUserLookupResponse;
 import com.example.userservice.model.response.InternalUserResponse;
 import com.example.userservice.model.response.PromoteAdvisorResponse;
 import com.example.userservice.model.response.StrikeResponse;
@@ -36,6 +38,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class InternalService {
 
+    static final int MAX_LOOKUP_IDS = 1000;
+
     private final UserRepository userRepository;
     private final ProfileRepository profileRepository;
     private final AdvisorRepository advisorRepository;
@@ -56,6 +60,25 @@ public class InternalService {
             return names;
         }
         return namesOf(userRepository.findAllById(ids.stream().filter(Objects::nonNull).toList()));
+    }
+
+    // id to email and display name, for lists another service shows. Ids that do not exist are left out. Capped so one
+    // call cannot load the whole user table
+    @Transactional(readOnly = true)
+    public Map<Long, InternalUserLookupResponse> lookupUsers(Collection<Long> ids) {
+        Map<Long, InternalUserLookupResponse> users = new HashMap<>();
+        if (ids == null || ids.isEmpty()) {
+            return users;
+        }
+        if (ids.size() > MAX_LOOKUP_IDS) {
+            throw new InvalidRequest("At most " + MAX_LOOKUP_IDS + " ids can be looked up at once");
+        }
+        List<User> found = userRepository.findAllById(ids.stream().filter(Objects::nonNull).toList());
+        Map<Long, String> names = namesOf(found);
+        for (User user : found) {
+            users.put(user.getId(), new InternalUserLookupResponse(user.getEmail(), names.get(user.getId())));
+        }
+        return users;
     }
 
     // user id to display name for these users, with one profile query. Same wording as ResponseMapper.nameOf
