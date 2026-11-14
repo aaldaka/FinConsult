@@ -11,6 +11,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -95,6 +96,11 @@ public class GlobalException { // adds meta data like http codes to the existing
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, "Invalid request body", request);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class) // for example /internal/kyc/approved without a userId
+    public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException e, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "Missing value for " + e.getParameterName(), request);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class) // for example /kyc/abc/approve

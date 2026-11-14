@@ -275,6 +275,13 @@ public class KycService {
         return toResponse(doc, owner, true);
     }
 
+    // the booking check: a null type means any approved document is enough
+    public boolean isApproved(Long userId, DocumentType type) {
+        return type == null
+                ? kycDocumentRepository.existsByUserIdAndStatus(userId, KycStatus.APPROVED)
+                : kycDocumentRepository.existsByUserIdAndDocumentTypeAndStatus(userId, type, KycStatus.APPROVED);
+    }
+
     public KycDocument getDocument(Long id) {
         return kycDocumentRepository.findById(id)
                 .orElseThrow(() -> new InformationNotFound("KYC document not found"));
