@@ -1,5 +1,6 @@
 package com.example.documentservice.service;
 
+import com.example.documentservice.client.UserClient;
 import com.example.documentservice.integration.AdminNotifier;
 import com.example.documentservice.integration.CheckEventPublisher;
 import com.example.documentservice.model.AdvisorApplication;
@@ -98,6 +99,7 @@ class DocumentProcessorTest {
     @MockitoBean VirusTotalService virusTotalService;
     @MockitoBean CheckEventPublisher checkEvents;
     @MockitoBean AdminNotifier adminNotifier;
+    @MockitoBean UserClient userClient; // answers nothing, so the message for the admins falls back to user <id>
 
     private TestPeople people;
     private long client;
