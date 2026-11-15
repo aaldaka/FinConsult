@@ -1,5 +1,4 @@
-# every value comes from the root .env (copy .env.example to .env and fill it in). Only the gateway, the frontend and
-# postgres publish ports to the host; the four services are reachable only inside the compose network
+# Only the gateway, the frontend and postgres publish ports to the host; the four services and kafka are reachable only inside the compose network
 
 x-database: &database
   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-finconsult}
@@ -27,11 +26,60 @@ services:
       retries: 20
     networks: [internal]
 
+  # single node kafka in KRaft mode (no zookeeper), reachable only inside the compose network as kafka:9092.
+  # 9093 is the node's own controller listener, which KRaft needs; nothing else connects to it.
+  # Topics are not created automatically, kafka-init creates them
+  kafka:
+    image: apache/kafka:3.9.0
+    environment:
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 15s
+    networks: [internal]
+
+  # runs once: creates the topics (3 partitions, replication factor 1) and exits. --if-not-exists makes it safe to rerun
+  kafka-init:
+    image: apache/kafka:3.9.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        for topic in notification-events audit-events notification-events.DLT audit-events.DLT; do
+          /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic "$$topic" --partitions 3 --replication-factor 1
+        done
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
+    restart: "no"
+    networks: [internal]
+
   notification-service:
     build: ./notification-service
     environment:
       <<: *database
       SERVER_PORT: 8081
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,6 +90,7 @@ services:
     environment:
       <<: *database
       SERVER_PORT: 8082
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_EXPIRATIONMS: ${JWT_EXPIRATION_MS:-3600000}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       BOOKING_SERVICE_URL: http://booking-service:8083
@@ -67,6 +116,7 @@ services:
     environment:
       <<: *database
       SERVER_PORT: 8083
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       USER_SERVICE_URL: http://user-service:8082
       DOCUMENT_SERVICE_URL: http://document-service:8084
@@ -80,6 +130,7 @@ services:
     environment:
       <<: *database
       SERVER_PORT: 8084
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       USER_SERVICE_URL: http://user-service:8082
       APP_UPLOAD_DIR: /app/uploads
@@ -125,3 +176,4 @@ volumes:
   pgdata:
   user-uploads:
   document-uploads:
+  kafka-data:
