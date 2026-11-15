@@ -12,9 +12,15 @@ consumers will follow.
 | `audit-events` | booking-service, document-service, user-service | the audit log (not built yet) | `"<entityType>:<entityId>"`, for example `"Appointment:42"` |
 | `notification-events.DLT` | the notification consumer, after its retries | nobody automatically, read by hand | same key as the original |
 | `audit-events.DLT` | the audit consumer, after its retries | nobody automatically, read by hand | same key as the original |
+| `email-events` | user-service | notification-service | the recipient's email address |
+| `email-events.DLT` | the email consumer, after its retries | nobody automatically, read by hand | same key as the original |
 
-All four topics have 3 partitions and replication factor 1 (one local broker). The key decides the partition, so all
+All six topics have 3 partitions and replication factor 1 (one local broker). The key decides the partition, so all
 events for one user (or one audited record) arrive in the order they were sent.
+
+The email topics keep their messages for a short time only, because they carry one-time links: `email-events` keeps
+them for 1 hour (`retention.ms=3600000`) and `email-events.DLT` for 24 hours (`retention.ms=86400000`), enough to
+look at a failure and replay it by hand. The other topics use the broker default.
 
 ## Envelope
 
@@ -108,6 +114,44 @@ consumer pushes `{"type": eventName, ...data}` to the stream, which is the shape
 }
 ```
 
+## email-events
+
+### `EMAIL`
+
+An email to send. The consumer fills in the template and sends it; nothing is stored apart from the `eventId`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `template` | string | which email, see below |
+| `to` | string | the recipient's email address |
+| `data` | object | exactly the values the body needs, see below |
+
+| `template` | Sent by | Subject | `data` |
+|---|---|---|---|
+| `EMAIL_VERIFICATION` | user-service, on registration | `Verify your FinConsult email` | `link`: the finished link, `<app.frontend-url>/verify-email?token=<token>`. The link expires in 24 hours |
+| `PASSWORD_RESET` | user-service, on a reset request for a known address | `Reset your FinConsult password` | `link`: the finished link, `<app.frontend-url>/reset-password?token=<token>`; `expiresInMinutes`: number, how long the link is valid (5 today) |
+
+The producer builds the whole link, so the consumer does not need the frontend address. An unknown `template` is
+logged and skipped like an unknown `type`.
+
+**The tokens and links are secrets.** They must never be logged, by the producer or the consumer, and never be put
+in an exception message: log the `eventId` and the `template` only. A message on the DLT still contains the link,
+which is one reason the DLT keeps it for 24 hours only.
+
+```json
+{
+  "eventId": "5e2b7a91-3c4d-4f8e-b6a0-d17c92e4f358",
+  "type": "EMAIL",
+  "occurredAt": "2026-11-15T10:32:05Z",
+  "source": "user-service",
+  "payload": {
+    "template": "PASSWORD_RESET",
+    "to": "client@example.com",
+    "data": { "link": "http://localhost:5173/reset-password?token=...", "expiresInMinutes": 5 }
+  }
+}
+```
+
 ## audit-events
 
 ### `AUDIT`
@@ -167,5 +211,5 @@ have no `entityType`, so when they become real producers they must add it (booki
    never blocks its partition. Messages in a DLT are looked at and replayed by hand.
 5. **Ordering** holds per key only: events for the same user (notifications) or the same record (audit) are handled
    in order; there is no ordering across keys.
-6. **Unknown fields are ignored** and an unknown `type` is logged and skipped (not sent to the DLT), so producers can
+6. **Unknown fields are ignored** and an unknown `type` (or email `template`) is logged and skipped (not sent to the DLT), so producers can
    add fields without breaking consumers.
