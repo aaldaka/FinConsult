@@ -43,3 +43,6 @@ build/
 apidocs.tmp.json
 frontend/node_modules/
 frontend/dist/
+
+### local environment, holds secrets ###
+.env
