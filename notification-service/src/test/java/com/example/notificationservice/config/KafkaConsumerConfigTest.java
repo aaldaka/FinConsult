@@ -8,12 +8,17 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.MessageListenerContainer;
+import org.springframework.mail.MailSendException;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,6 +28,7 @@ import static org.mockito.Mockito.when;
 
 // no broker: the real error handler is driven by hand and the dead letter producer is kafka's MockProducer, which
 // keeps what was sent. One handleOne call stands for one failed delivery of the record
+@ExtendWith(OutputCaptureExtension.class)
 class KafkaConsumerConfigTest {
 
     private MockProducer<String, String> producer;
@@ -44,7 +50,11 @@ class KafkaConsumerConfigTest {
     }
 
     private boolean fail(Exception e) {
-        return errorHandler.handleOne(e, record, consumer, container);
+        return fail(e, record);
+    }
+
+    private boolean fail(Exception e, ConsumerRecord<String, String> failed) {
+        return errorHandler.handleOne(e, failed, consumer, container);
     }
 
     @Test
@@ -70,5 +80,24 @@ class KafkaConsumerConfigTest {
 
         assertEquals(1, producer.history().size());
         assertEquals("notification-events.DLT", producer.history().get(0).topic());
+    }
+
+    @Test
+    void aFailingEmailIsRetriedThenSentToTheEmailDltWithoutLoggingItsLink(CapturedOutput output) {
+        String token = UUID.randomUUID().toString();
+        ConsumerRecord<String, String> email = new ConsumerRecord<>("email-events", 0, 3L, "client@example.com",
+                "{\"payload\": {\"data\": {\"link\": \"http://localhost:5173/reset-password?token=" + token + "\"}}}");
+        RuntimeException failure = new MailSendException("smtp unavailable");
+
+        assertFalse(fail(failure, email));
+        assertFalse(fail(failure, email));
+        assertFalse(fail(failure, email));
+        assertTrue(fail(failure, email), "the 4th failure sends it to the DLT");
+
+        assertEquals(1, producer.history().size());
+        assertEquals("email-events.DLT", producer.history().get(0).topic());
+        assertEquals("client@example.com", producer.history().get(0).key());
+        assertEquals(email.value(), producer.history().get(0).value());
+        assertFalse(output.getAll().contains(token), "the error handler logged the token");
     }
 }
