@@ -13,8 +13,27 @@ import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
 import { errorMessage, isConflict } from '@/lib/errors'
-import { formatDateTime } from '@/lib/format'
+import { formatTime } from '@/lib/format'
 import { labelFor } from '@/lib/options'
+import type { SlotResponse } from '@/api/types'
+
+const dayHeader = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
+
+// "Sunday, Nov 22"
+function formatDay(iso: string): string {
+  return dayHeader.format(new Date(iso))
+}
+
+// the slots in time order, grouped by the day they start on (in the viewer's time zone)
+function slotsByDay(slots: SlotResponse[]): { day: string; slots: SlotResponse[] }[] {
+  const days = new Map<string, SlotResponse[]>()
+  for (const slot of [...slots].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())) {
+    const start = new Date(slot.startTime)
+    const day = `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`
+    days.set(day, [...(days.get(day) ?? []), slot])
+  }
+  return [...days].map(([day, daySlots]) => ({ day, slots: daySlots }))
+}
 
 export function AdvisorDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -25,6 +44,7 @@ export function AdvisorDetailPage() {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
   const [serviceTypeId, setServiceTypeId] = useState<number | ''>('')
   const [bookError, setBookError] = useState<string | null>(null)
+  const [now] = useState(() => Date.now()) // when the page opened: slots that start before this are hidden
 
   const advisorQuery = useQuery({ queryKey: ['advisor', advisorId], queryFn: () => getAdvisor(advisorId) })
   const slotsQuery = useQuery({ queryKey: ['slots', 'advisor', advisorId], queryFn: () => listAdvisorSlots(advisorId) })
@@ -63,7 +83,8 @@ export function AdvisorDetailPage() {
   const advisor = advisorQuery.data
   if (!advisor) return null
 
-  const availableSlots = (slotsQuery.data ?? []).filter((s) => s.status === 'AVAILABLE')
+  // past slots cannot be booked, so they are not shown at all
+  const availableSlots = (slotsQuery.data ?? []).filter((s) => s.status === 'AVAILABLE' && new Date(s.startTime).getTime() > now)
   const bookableServices = (serviceTypesQuery.data ?? []).filter(
     (st) => advisor.specialty === 'GENERAL' || st.requiredSpecialty === null || st.requiredSpecialty === advisor.specialty,
   )
@@ -107,20 +128,27 @@ export function AdvisorDetailPage() {
 
         {availableSlots.length > 0 && (
           <div className="space-y-4">
-            <div className="stagger grid gap-2 sm:grid-cols-2">
-              {availableSlots.map((slot) => (
-                <button
-                  key={slot.id}
-                  type="button"
-                  onClick={() => setSelectedSlot(slot.id)}
-                  className={`cursor-pointer rounded-xl border px-3 py-2.5 text-left text-sm transition-all duration-200 active:scale-[0.98] ${
-                    selectedSlot === slot.id
-                      ? 'border-royal bg-royal/5 text-royal shadow-card'
-                      : 'border-hairline bg-surface text-ink hover:border-royal/40 hover:bg-royal/[0.02]'
-                  }`}
-                >
-                  {formatDateTime(slot.startTime)}
-                </button>
+            <div className="stagger space-y-5">
+              {slotsByDay(availableSlots).map(({ day, slots }) => (
+                <section key={day}>
+                  <h3 className="mb-2 text-sm font-semibold text-ink">{formatDay(slots[0].startTime)}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {slots.map((slot) => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => setSelectedSlot(slot.id)}
+                        className={`tabular min-w-24 cursor-pointer rounded-xl border px-3 py-2 text-center text-sm transition-all duration-200 active:scale-[0.98] ${
+                          selectedSlot === slot.id
+                            ? 'border-royal bg-royal/5 text-royal shadow-card'
+                            : 'border-hairline bg-surface text-ink hover:border-royal/40 hover:bg-royal/[0.02]'
+                        }`}
+                      >
+                        {formatTime(slot.startTime)}
+                      </button>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
 
