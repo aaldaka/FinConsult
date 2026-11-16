@@ -2,6 +2,7 @@ package com.example.userservice.controller;
 
 import com.example.userservice.integration.AppointmentCancellation;
 import com.example.userservice.integration.AuditRecorder;
+import com.example.userservice.integration.EmailPublisher;
 import com.example.userservice.model.Advisor;
 import com.example.userservice.model.Profile;
 import com.example.userservice.model.User;
@@ -14,7 +15,6 @@ import com.example.userservice.repository.AdvisorRepository;
 import com.example.userservice.repository.ProfileRepository;
 import com.example.userservice.repository.UserRepository;
 import com.example.userservice.security.JWTUtils;
-import com.example.userservice.service.EmailService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,7 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 // runs on finconsult_test (TEST_DB_URL), which the main app's tests build. Every user here is created by the
 // test (or by the endpoint under test) with a unique email and deleted afterwards, real users are never touched.
-// EmailService and the two cross-area points (appointments and the audit log) are mocked, so we can check
+// The email publisher and the two cross-area points (appointments and the audit log) are mocked, so we can check
 // exactly when they are called
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -67,7 +67,7 @@ class AdminControllerTest {
     @Autowired JWTUtils jwtUtils;
     @Autowired JdbcTemplate jdbcTemplate;
 
-    @MockitoBean EmailService emailService;
+    @MockitoBean EmailPublisher emailPublisher;
     @MockitoBean AppointmentCancellation appointmentCancellation;
     @MockitoBean AuditRecorder auditRecorder;
 
@@ -160,7 +160,7 @@ class AdminControllerTest {
         assertTrue(advisor.isActive());
 
         // the monolith sends no email for an admin-created advisor
-        verifyNoInteractions(emailService);
+        verifyNoInteractions(emailPublisher);
         verify(auditRecorder).record(eq(admin.getId()), eq(AuditAction.ADVISOR_CREATED), eq("Advisor"),
                 eq(advisor.getId()), eq("Created advisor account for " + email));
     }

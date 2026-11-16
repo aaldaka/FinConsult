@@ -5,6 +5,7 @@ import com.example.userservice.exception.EmailExists;
 import com.example.userservice.exception.InformationIncorrect;
 import com.example.userservice.exception.InformationNotFound;
 import com.example.userservice.exception.InvalidRequest;
+import com.example.userservice.integration.EmailPublisher;
 import com.example.userservice.model.PasswordResetToken;
 import com.example.userservice.model.Profile;
 import com.example.userservice.model.User;
@@ -55,7 +56,7 @@ public class AuthService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final JWTUtils jwtUtils;
     private final VerificationTokenRepository verificationTokenRepository;
-    private final EmailService emailService;
+    private final EmailPublisher emailPublisher;
     private final Environment environment;
 
     /**
@@ -138,13 +139,8 @@ public class AuthService {
 
         String frontendUrl = environment.getProperty("app.frontend-url", "http://localhost:5173");
 
-        emailService.sendEmail(
-                currentUser.getEmail(),
-                "Verify your FinConsult email",
-                "Click to verify your email: " + frontendUrl + "/verify-email?token=" + verifyToken
-                        + "\n\nThis link expires in 24 hours.",
-                "verification"
-        );
+        // sent once this transaction commits, notification-service sends the email
+        emailPublisher.verification(currentUser.getEmail(), frontendUrl + "/verify-email?token=" + verifyToken);
 
         log.info("User {} registered", currentUser.getId());
 // initially when registering null no token
@@ -221,13 +217,7 @@ public class AuthService {
 
             String frontendUrl = environment.getProperty("app.frontend-url", "http://localhost:5173");
 
-            emailService.sendEmail(
-                    user.getEmail(),
-                    "Reset your FinConsult password",
-                    "Click to reset your password: " + frontendUrl + "/reset-password?token=" + token
-                            + "\n\nThis link expires in " + RESET_TOKEN_MINUTES + " minutes. If you didn't request this, ignore this email.",
-                    "password-reset"
-            );
+            emailPublisher.passwordReset(user.getEmail(), frontendUrl + "/reset-password?token=" + token, RESET_TOKEN_MINUTES);
         });
 
         return new MessageResponse("A password reset link has been sent to the designated email.");

@@ -12,7 +12,6 @@ import com.example.userservice.repository.ProfileRepository;
 import com.example.userservice.repository.UserRepository;
 import com.example.userservice.repository.VerificationTokenRepository;
 import com.example.userservice.security.JWTUtils;
-import com.example.userservice.service.EmailService;
 import com.jayway.jsonpath.JsonPath;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -21,13 +20,19 @@ import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.KafkaException;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -35,21 +40,27 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -58,12 +69,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 // runs on finconsult_test (TEST_DB_URL), which the main app's tests build. Every user here is created by the
-// test with a unique email and deleted afterwards, real users are never touched. EmailService is mocked,
-// so no mail is sent
+// test with a unique email and deleted afterwards, real users are never touched. The KafkaTemplate is mocked, so
+// the email events are only recorded: nothing reaches a broker and no mail is sent
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestPropertySource(locations = "classpath:test.properties")
+@ExtendWith(OutputCaptureExtension.class)
 class AuthControllerTest {
 
     private static final String PASSWORD = "Str0ngP@ss!";
@@ -81,10 +93,11 @@ class AuthControllerTest {
     @Autowired JWTUtils jwtUtils;
     @Autowired JdbcTemplate jdbcTemplate;
 
-    @MockitoBean EmailService emailService;
+    @MockitoBean KafkaTemplate<String, String> kafkaTemplate;
 
     @Value("${jwt.secret}") String jwtSecret;
 
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
     private final List<String> createdEmails = new ArrayList<>();
     private String ip;
 
@@ -92,6 +105,7 @@ class AuthControllerTest {
     void useAFreshIp() {
         int n = NEXT_IP.incrementAndGet();
         ip = "10.20." + (n / 250) + "." + (n % 250 + 1);
+        when(kafkaTemplate.send(anyString(), anyString(), anyString())).thenReturn(CompletableFuture.completedFuture(null));
     }
 
     // delete only the users these tests created (by their unique emails) and what hangs off them
@@ -106,6 +120,27 @@ class AuthControllerTest {
     }
 
     // helpers
+
+    // the one EMAIL event sent to this address, as json
+    private JsonNode theOnlyEmailEventTo(String to) {
+        ArgumentCaptor<String> value = ArgumentCaptor.forClass(String.class);
+        verify(kafkaTemplate).send(eq("email-events"), eq(to), value.capture());
+        JsonNode event = objectMapper.readTree(value.getValue());
+        assertEquals("EMAIL", event.get("type").asString());
+        assertEquals("user-service", event.get("source").asString());
+        assertEquals(to, event.get("payload").get("to").asString());
+        return event.get("payload");
+    }
+
+    private String verificationTokenOf(String email) {
+        return jdbcTemplate.queryForObject("SELECT t.token FROM verification_tokens t JOIN users u ON u.id = t.user_id WHERE u.email = ?",
+                String.class, email);
+    }
+
+    private void assertNoSecretLogged(CapturedOutput output, String token) {
+        assertFalse(output.getAll().contains(token), "a log line contains the token");
+        assertFalse(output.getAll().contains("token="), "a log line contains a link");
+    }
 
     private String newEmail() {
         String email = "auth-test-" + UUID.randomUUID() + "@test.com";
@@ -195,8 +230,10 @@ class AuthControllerTest {
         assertTrue(passwordEncoder.matches(PASSWORD, saved.getPassword()));
         assertEquals("/default.jpg", profileRepository.findByUser(saved).orElseThrow().getProfilePicturePath());
         assertEquals(1, count("SELECT COUNT(*) FROM verification_tokens WHERE user_id = ?", saved.getId()));
-        verify(emailService).sendEmail(eq(email), eq("Verify your FinConsult email"),
-                contains("/verify-email?token="), eq("verification"));
+        JsonNode payload = theOnlyEmailEventTo(email);
+        assertEquals("EMAIL_VERIFICATION", payload.get("template").asString());
+        assertEquals(Set.of("link"), Set.copyOf(payload.get("data").propertyNames()));
+        assertTrue(payload.get("data").get("link").asString().endsWith("/verify-email?token=" + verificationTokenOf(email)));
     }
 
     @Test
@@ -210,7 +247,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("This email is already in use."));
 
         assertEquals(1, count("SELECT COUNT(*) FROM users WHERE email = ?", existing.getEmail()));
-        verifyNoInteractions(emailService);
+        verifyNoInteractions(kafkaTemplate);
     }
 
     @Test
@@ -224,7 +261,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.message").value("password: " + PasswordRules.MESSAGE));
 
         assertEquals(0, count("SELECT COUNT(*) FROM users WHERE email = ?", email));
-        verifyNoInteractions(emailService);
+        verifyNoInteractions(kafkaTemplate);
     }
 
     // login
@@ -365,8 +402,11 @@ class AuthControllerTest {
         assertEquals(1, tokens.size());
         LocalDateTime expiry = tokens.get(0).getExpiresAt();
         assertTrue(expiry.isAfter(LocalDateTime.now().plusMinutes(4)) && expiry.isBefore(LocalDateTime.now().plusMinutes(6)));
-        verify(emailService).sendEmail(eq(user.getEmail()), eq("Reset your FinConsult password"),
-                contains("/reset-password?token=" + tokens.get(0).getToken()), eq("password-reset"));
+        JsonNode payload = theOnlyEmailEventTo(user.getEmail());
+        assertEquals("PASSWORD_RESET", payload.get("template").asString());
+        assertEquals(Set.of("link", "expiresInMinutes"), Set.copyOf(payload.get("data").propertyNames()));
+        assertTrue(payload.get("data").get("link").asString().endsWith("/reset-password?token=" + tokens.get(0).getToken()));
+        assertEquals(5, payload.get("data").get("expiresInMinutes").asInt());
     }
 
     @Test
@@ -375,7 +415,7 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.msg").value("A password reset link has been sent to the designated email."));
 
-        verifyNoInteractions(emailService);
+        verifyNoInteractions(kafkaTemplate);
     }
 
     // reset password
@@ -513,5 +553,42 @@ class AuthControllerTest {
                 .andExpect(status().isTooManyRequests())
                 .andExpect(header().exists("Retry-After"))
                 .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.startsWith("Too many requests")));
+    }
+
+    // the email events
+
+    @Test
+    void noLogLineContainsTheTokenOrTheLink(CapturedOutput output) throws Exception {
+        String email = newEmail();
+        postJson("/auth/register", json("email", email, "password", PASSWORD, "firstName", "Jane", "lastName", "Doe"))
+                .andExpect(status().isCreated());
+        User user = createUser(UserStatus.ACTIVE, false);
+        postJson("/auth/forget-password", json("email", user.getEmail())).andExpect(status().isOk());
+
+        assertNoSecretLogged(output, verificationTokenOf(email));
+        assertNoSecretLogged(output, passwordResetTokenRepository.findByUserAndUsedFalse(user).get(0).getToken());
+    }
+
+    @Test
+    void aBrokerThatIsDownFailsNeitherTheRegistrationNorTheResetRequestAndLogsNoLink(CapturedOutput output) throws Exception {
+        when(kafkaTemplate.send(anyString(), anyString(), anyString())).thenThrow(new KafkaException("broker not available"));
+        String email = newEmail();
+
+        postJson("/auth/register", json("email", email, "password", PASSWORD, "firstName", "Jane", "lastName", "Doe"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.role").value("CLIENT"))
+                .andExpect(jsonPath("$.token").doesNotExist());
+        assertEquals(UserStatus.UNVERIFIED, userRepository.findByEmail(email).orElseThrow().getUserStatus());
+
+        User user = createUser(UserStatus.ACTIVE, false);
+        postJson("/auth/forget-password", json("email", user.getEmail()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.msg").value("A password reset link has been sent to the designated email."));
+        assertEquals(1, passwordResetTokenRepository.findByUserAndUsedFalse(user).size());
+
+        assertTrue(output.getAll().contains("Could not send event"), "the failure is logged");
+        assertNoSecretLogged(output, verificationTokenOf(email));
+        assertNoSecretLogged(output, passwordResetTokenRepository.findByUserAndUsedFalse(user).get(0).getToken());
     }
 }

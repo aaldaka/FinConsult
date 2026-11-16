@@ -2,6 +2,7 @@ package com.example.userservice.controller;
 
 import com.example.userservice.integration.AppointmentCancellation;
 import com.example.userservice.integration.AuditRecorder;
+import com.example.userservice.integration.EmailPublisher;
 import com.example.userservice.integration.RestAppointmentCancellation;
 import com.example.userservice.model.Advisor;
 import com.example.userservice.model.Profile;
@@ -13,7 +14,6 @@ import com.example.userservice.repository.AdvisorRepository;
 import com.example.userservice.repository.ProfileRepository;
 import com.example.userservice.repository.UserRepository;
 import com.example.userservice.security.JWTUtils;
-import com.example.userservice.service.EmailService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +57,7 @@ class DeactivationWithBookingDownTest {
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired AppointmentCancellation appointmentCancellation;
 
-    @MockitoBean EmailService emailService;
+    @MockitoBean EmailPublisher emailPublisher;
     @MockitoBean AuditRecorder auditRecorder;
 
     private final List<String> createdEmails = new ArrayList<>();
