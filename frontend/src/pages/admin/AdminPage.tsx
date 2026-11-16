@@ -2,22 +2,20 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, UserX } from 'lucide-react'
-import { createAdvisor, listAuditLogs } from '@/api/admin'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { UserX } from 'lucide-react'
+import { createAdvisor } from '@/api/admin'
 import type { Specialty } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
-import { Spinner } from '@/components/ui/Spinner'
-import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
 import { errorMessage } from '@/lib/errors'
-import { formatDateTime } from '@/lib/format'
 import { SPECIALTIES, labelFor } from '@/lib/options'
 import { DeactivatePanel } from '@/pages/admin/DeactivatePanel'
+import { AuditLogList } from '@/pages/admin/AuditLogList'
 
 const advisorSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Enter a valid email'),
@@ -101,67 +99,6 @@ function CreateAdvisorCard() {
   )
 }
 
-function AuditLogCard() {
-  const [page, setPage] = useState(0)
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['audit-logs', page],
-    queryFn: () => listAuditLogs({ page, size: 10 }),
-  })
-
-  return (
-    <Card>
-      <h2 className="mb-4 font-semibold text-ink">Audit log</h2>
-      {error && <Alert>{errorMessage(error)}</Alert>}
-      {isLoading && <Spinner />}
-
-      {data && data.content.length === 0 && <EmptyState title="No audit entries yet" />}
-
-      {data && data.content.length > 0 && (
-        <div className="stagger space-y-2">
-          {data.content.map((entry) => (
-            <div
-              key={entry.id}
-              className="rounded-xl border border-hairline px-3 py-2.5 text-sm transition-colors duration-200 hover:border-royal/30"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-ink">{labelFor(entry.action)}</span>
-                <span className="text-xs text-muted">{formatDateTime(entry.timestamp)}</span>
-              </div>
-              <p className="text-muted">
-                <span className="font-medium text-ink">{entry.actorName}</span>
-                {entry.actorEmail !== 'SYSTEM' && <span className="text-xs"> ({entry.actorEmail})</span>} · {entry.entityType} #
-                {entry.entityId}
-              </p>
-              {entry.details && <p className="mt-1 text-xs text-muted">{entry.details}</p>}
-              {entry.action === 'APPOINTMENT_NO_SHOW' && entry.entityType === 'Appointment' && (
-                <Link
-                  to={`/no-shows?appointment=${entry.entityId}`}
-                  className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-royal hover:underline"
-                >
-                  Review no-show
-                  <ArrowRight className="size-3" aria-hidden="true" />
-                </Link>
-              )}
-            </div>
-          ))}
-
-          <div className="flex items-center justify-between pt-2">
-            <Button size="sm" variant="secondary" disabled={data.first} onClick={() => setPage((p) => p - 1)}>
-              Previous
-            </Button>
-            <span className="text-sm text-muted">
-              Page {data.number + 1} of {Math.max(data.totalPages, 1)}
-            </span>
-            <Button size="sm" variant="secondary" disabled={data.last} onClick={() => setPage((p) => p + 1)}>
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
-    </Card>
-  )
-}
-
 export function AdminPage() {
   const navigate = useNavigate()
   return (
@@ -179,7 +116,7 @@ export function AdminPage() {
 
       <CreateAdvisorCard />
       <DeactivatePanel />
-      <AuditLogCard />
+      <AuditLogList />
     </div>
   )
 }
