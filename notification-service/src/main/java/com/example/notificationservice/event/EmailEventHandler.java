@@ -48,13 +48,14 @@ public class EmailEventHandler {
         if (payload.to() == null || payload.to().isBlank()) {
             throw new InvalidEventException("Event " + event.eventId() + " has no recipient");
         }
-        String body = template.body(payload.data());
+        String text = template.text(payload.data());
+        String html = template.html(payload.data());
 
         Boolean sent = transactionTemplate.execute(status -> {
             if (!processedEvents.markProcessed(event.eventId())) {
                 return false;
             }
-            emailService.sendEmail(payload.to(), template.subject(), body);
+            emailService.sendEmail(payload.to(), template.subject(), text, html);
             return true;
         });
         if (Boolean.TRUE.equals(sent)) {

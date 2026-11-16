@@ -1,6 +1,12 @@
 package com.example.notificationservice.event;
 
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
+import jakarta.mail.Session;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -10,7 +16,6 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
@@ -30,6 +35,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 // runs on finconsult_test (TEST_DB_URL) without kafka and without a mail server: the handler is called with the
 // message text and JavaMailSender is a mock. Every link carries a fresh token, and every test checks that the token
@@ -49,6 +55,11 @@ class EmailEventHandlerTest {
 
     private final String token = UUID.randomUUID().toString();
     private final List<UUID> eventIds = new ArrayList<>();
+
+    @BeforeEach
+    void aMailSenderThatBuildsRealMessages() {
+        when(mailSender.createMimeMessage()).thenAnswer(invocation -> new MimeMessage((Session) null));
+    }
 
     @AfterEach
     void deleteWhatThisTestCreated() {
@@ -88,10 +99,35 @@ class EmailEventHandlerTest {
                 + "\"data\": {\"link\": \"" + resetLink() + "\", \"expiresInMinutes\": 5}}");
     }
 
-    private SimpleMailMessage theOnlyEmailSent() {
-        ArgumentCaptor<SimpleMailMessage> sent = ArgumentCaptor.forClass(SimpleMailMessage.class);
+    // saved first, as sending would, so every part gets its content type header
+    private MimeMessage theOnlyEmailSent() throws Exception {
+        ArgumentCaptor<MimeMessage> sent = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(sent.capture());
+        sent.getValue().saveChanges();
         return sent.getValue();
+    }
+
+    // the decoded body of the first part with this content type, looking through the nested multiparts
+    private static String part(Part part, String contentType) throws Exception {
+        Object content = part.getContent();
+        if (content instanceof Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                String found = part(multipart.getBodyPart(i), contentType);
+                if (found != null) {
+                    return found;
+                }
+            }
+            return null;
+        }
+        return part.isMimeType(contentType) ? (String) content : null;
+    }
+
+    private void assertSentTo(MimeMessage email, String subject) throws Exception {
+        assertArrayEquals(new InternetAddress[] {new InternetAddress(TO)}, email.getAllRecipients());
+        InternetAddress from = (InternetAddress) email.getFrom()[0];
+        assertEquals("test-sender@example.com", from.getAddress());
+        assertEquals("FinConsult", from.getPersonal());
+        assertEquals(subject, email.getSubject());
     }
 
     private boolean processed(UUID eventId) {
@@ -106,29 +142,34 @@ class EmailEventHandlerTest {
     // the templates
 
     @Test
-    void theVerificationEmailGoesToTheRecipientWithItsLink(CapturedOutput output) {
+    void theVerificationEmailGoesToTheRecipientWithItsLink(CapturedOutput output) throws Exception {
         UUID eventId = newEventId();
 
         handler.handle(verification(eventId));
 
-        SimpleMailMessage email = theOnlyEmailSent();
-        assertArrayEquals(new String[] {TO}, email.getTo());
-        assertEquals("test-sender@example.com", email.getFrom());
-        assertEquals("Verify your FinConsult email", email.getSubject());
-        assertEquals("Click to verify your email: " + verifyLink() + "\n\nThis link expires in 24 hours.", email.getText());
+        MimeMessage email = theOnlyEmailSent();
+        assertSentTo(email, "Verify your FinConsult email");
+        assertEquals("Click to verify your email: " + verifyLink() + "\n\nThis link expires in 24 hours.", part(email, "text/plain"));
+        String html = part(email, "text/html");
+        assertTrue(html.contains("Confirm your email"));
+        assertTrue(html.contains("href=\"" + verifyLink() + "\""), "the button links to the verification link");
+        assertTrue(html.contains("This link expires in 24 hours."));
         assertTrue(processed(eventId));
         assertNoSecretLogged(output);
     }
 
     @Test
-    void thePasswordResetEmailGoesToTheRecipientWithItsLinkAndExpiry(CapturedOutput output) {
+    void thePasswordResetEmailGoesToTheRecipientWithItsLinkAndExpiry(CapturedOutput output) throws Exception {
         handler.handle(reset(newEventId()));
 
-        SimpleMailMessage email = theOnlyEmailSent();
-        assertArrayEquals(new String[] {TO}, email.getTo());
-        assertEquals("Reset your FinConsult password", email.getSubject());
+        MimeMessage email = theOnlyEmailSent();
+        assertSentTo(email, "Reset your FinConsult password");
         assertEquals("Click to reset your password: " + resetLink()
-                + "\n\nThis link expires in 5 minutes. If you didn't request this, ignore this email.", email.getText());
+                + "\n\nThis link expires in 5 minutes. If you didn't request this, ignore this email.", part(email, "text/plain"));
+        String html = part(email, "text/html");
+        assertTrue(html.contains("Reset your password"));
+        assertTrue(html.contains("href=\"" + resetLink() + "\""), "the button links to the reset link");
+        assertTrue(html.contains("This link expires in 5 minutes."));
         assertNoSecretLogged(output);
     }
 
@@ -141,14 +182,14 @@ class EmailEventHandlerTest {
         handler.handle(verification(eventId));
         handler.handle(verification(eventId));
 
-        verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
+        verify(mailSender, times(1)).send(any(MimeMessage.class));
         assertNoSecretLogged(output);
     }
 
     @Test
     void aMailFailureThrowsAndLeavesNoProcessedRowSoARetrySends(CapturedOutput output) {
         UUID eventId = newEventId();
-        doThrow(new MailSendException("smtp unavailable")).when(mailSender).send(any(SimpleMailMessage.class));
+        doThrow(new MailSendException("smtp unavailable")).when(mailSender).send(any(MimeMessage.class));
 
         assertThrows(MailSendException.class, () -> handler.handle(reset(eventId)));
 
@@ -162,7 +203,7 @@ class EmailEventHandlerTest {
 
         handler.handle(event(eventId, "EMAIL", "{\"template\": \"WELCOME\", \"to\": \"" + TO + "\", \"data\": {\"link\": \"" + verifyLink() + "\"}}"));
 
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(mailSender, never()).send(any(MimeMessage.class));
         assertFalse(processed(eventId));
         assertNoSecretLogged(output);
     }
@@ -183,7 +224,7 @@ class EmailEventHandlerTest {
             assertEquals(null, e.getCause(), "the cause could quote the message");
         }
 
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(mailSender, never()).send(any(MimeMessage.class));
         assertNoSecretLogged(output);
     }
 }
