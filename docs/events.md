@@ -162,7 +162,7 @@ One entry for the audit log. The fields follow the monolith's `audit_logs` table
 | Field | Type | Notes |
 |---|---|---|
 | `action` | string | the `AuditAction` value, see below |
-| `entityType` | string | what was changed: `Appointment`, `User`, `Advisor`, `KycDocument`, `AdvisorApplication`, `ApplicationCertificate` |
+| `entityType` | string | what was changed: `Appointment`, `User`, `Advisor`, `Profile`, `KycDocument`, `AdvisorApplication`, `ApplicationCertificate` |
 | `entityId` | number | the id of that record |
 | `actorId` | number or `null` | the user who did it; `null` for something the system did on its own |
 | `details` | string | readable text, at most 800 characters (the `audit_logs.details` column) |
@@ -173,7 +173,7 @@ One entry for the audit log. The fields follow the monolith's `audit_logs` table
 |---|---|
 | booking-service | `APPOINTMENT_BOOKED`, `APPOINTMENT_CONFIRMED`, `APPOINTMENT_CANCELLED`, `APPOINTMENT_NO_SHOW`, `NO_SHOW_EXCUSED`, `CLIENT_BLACKLISTED` |
 | document-service | `KYC_SUBMITTED`, `KYC_RESUBMITTED`, `KYC_APPROVED`, `KYC_REJECTED`, `ADVISOR_APPLICATION_SUBMITTED`, `ADVISOR_APPLICATION_APPROVED`, `ADVISOR_APPLICATION_REJECTED`, `CERTIFICATE_REPLACED` |
-| user-service | the values of its own `AuditAction` (account, profile and deactivation actions) |
+| user-service | `PROFILE_UPDATED`, `PROFILE_PICTURE_UPDATED` (entityType `Profile`), `USER_DEACTIVATED` (`User`), `ADVISOR_CREATED`, `ADVISOR_DEACTIVATED` (`Advisor`) |
 
 The current stubs: user-service's `AuditRecorder.record(actorUserId, action, entityType, entityId, details)` matches
 these fields exactly. Booking's and document-service's `AuditRecorder.record(action, actorUserId, entityId, detail)`
