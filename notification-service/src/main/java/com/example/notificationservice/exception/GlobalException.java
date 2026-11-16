@@ -43,6 +43,12 @@ public class GlobalException { // adds meta data like http codes to the existing
         return build(HttpStatus.BAD_REQUEST, e.getMessage(), request);
     }
 
+    @ExceptionHandler(ServiceUnavailable.class) // the user service did not answer or answered with an error
+    public ResponseEntity<ErrorResponse> handleServiceUnavailable(ServiceUnavailable e, HttpServletRequest request) {
+        log.warn("{} {} -> 503: {}", request.getMethod(), request.getRequestURI(), e.getMessage());
+        return build(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage(), request);
+    }
+
     @ExceptionHandler(MethodArgumentTypeMismatchException.class) // for example /notifications/abc/read
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, "Invalid value for " + ex.getName(), request);
