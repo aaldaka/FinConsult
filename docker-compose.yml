@@ -80,6 +80,8 @@ services:
     build: ./notification-service
     environment:
       <<: *database
+      SPRINGDOC_SWAGGER_UI_CONFIG_URL: ../v3/api-docs/swagger-config
+      SPRINGDOC_SWAGGER_UI_URL: ../v3/api-docs
       SERVER_PORT: 8081
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
@@ -102,6 +104,8 @@ services:
     build: ./user-service
     environment:
       <<: *database
+      SPRINGDOC_SWAGGER_UI_CONFIG_URL: ../v3/api-docs/swagger-config
+      SPRINGDOC_SWAGGER_UI_URL: ../v3/api-docs
       SERVER_PORT: 8082
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_EXPIRATIONMS: ${JWT_EXPIRATION_MS:-3600000}
@@ -130,6 +134,8 @@ services:
     build: ./booking-service
     environment:
       <<: *database
+      SPRINGDOC_SWAGGER_UI_CONFIG_URL: ../v3/api-docs/swagger-config
+      SPRINGDOC_SWAGGER_UI_URL: ../v3/api-docs
       SERVER_PORT: 8083
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
@@ -146,6 +152,8 @@ services:
     build: ./document-service
     environment:
       <<: *database
+      SPRINGDOC_SWAGGER_UI_CONFIG_URL: ../v3/api-docs/swagger-config
+      SPRINGDOC_SWAGGER_UI_URL: ../v3/api-docs
       SERVER_PORT: 8084
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
