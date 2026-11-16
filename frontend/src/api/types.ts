@@ -92,6 +92,8 @@ export interface AdvisorResponse {
   specialty: Specialty
   yearsOfExperience: number
   active: boolean
+  /** null until the advisor uploads a profile picture */
+  profilePicturePath?: string | null
 }
 
 export interface UserSummaryResponse {

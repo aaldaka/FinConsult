@@ -41,6 +41,11 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/** A picture path from the API (/uploads/...) as a full URL through the gateway; full URLs are kept as they are. */
+export function pictureUrl(path: string): string {
+  return path.startsWith('/') ? `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080'}${path}` : path
+}
+
 export function initials(firstName?: string, lastName?: string): string {
   const a = firstName?.trim()?.charAt(0) ?? ''
   const b = lastName?.trim()?.charAt(0) ?? ''
