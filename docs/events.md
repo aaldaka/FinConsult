@@ -9,7 +9,7 @@ consumers will follow.
 | Topic | Producers | Consumer | Key |
 |---|---|---|---|
 | `notification-events` | booking-service, document-service, user-service | notification-service | the recipient's `userId` (as a string) |
-| `audit-events` | booking-service, document-service, user-service | the audit log (not built yet) | `"<entityType>:<entityId>"`, for example `"Appointment:42"` |
+| `audit-events` | booking-service, document-service, user-service | notification-service (the audit log) | `"<entityType>:<entityId>"`, for example `"Appointment:42"` |
 | `notification-events.DLT` | the notification consumer, after its retries | nobody automatically, read by hand | same key as the original |
 | `audit-events.DLT` | the audit consumer, after its retries | nobody automatically, read by hand | same key as the original |
 | `email-events` | user-service | notification-service | the recipient's email address |
@@ -156,8 +156,13 @@ which is one reason the DLT keeps it for 24 hours only.
 
 ### `AUDIT`
 
-One entry for the audit log. The fields follow the monolith's `audit_logs` table (`action`, `entity_type`,
-`entity_id`, `actor_id`, `details`); the table's `timestamp` comes from the envelope's `occurredAt`.
+One entry for the audit log. notification-service writes it to the `audit_logs` table and serves it on
+`GET /admin/logs`. The fields follow the monolith's table (`action`, `entity_type`, `entity_id`, `actor_id`,
+`details`); the table's `timestamp` is the envelope's `occurredAt` (converted to the server's time zone, the column has
+none), so a late or replayed event still shows at the time the change happened. `details` longer than 800 characters
+is cut, like the monolith did. `actorId` must be an existing user or `null`: the column has a foreign key to `users`,
+so an unknown actor fails the insert and the event ends up on `audit-events.DLT` after the retries. `details` can
+contain names, so the consumer logs only the `eventId` and the `action`.
 
 | Field | Type | Notes |
 |---|---|---|
