@@ -17,4 +17,5 @@ public class AdvisorResponse {
     private Specialty specialty;
     private int yearsOfExperience;
     private boolean active;
+    private String profilePicturePath; // null while the advisor still has the default picture
 }

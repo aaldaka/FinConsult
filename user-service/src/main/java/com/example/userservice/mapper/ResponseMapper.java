@@ -9,6 +9,8 @@ import com.example.userservice.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 /** Builds the responses of this service. */
 @Component
 @RequiredArgsConstructor
@@ -32,7 +34,12 @@ public class ResponseMapper {
     }
 
     public AdvisorResponse toAdvisor(Advisor a) {
-        return new AdvisorResponse(a.getId(), nameOf(a.getUser()), a.getTitle(),
-                a.getSpecialty(), a.getYearsOfExperience(), a.isActive());
+        Optional<Profile> profile = profileRepository.findByUser(a.getUser());
+        String name = profile.map(p -> p.getFirstName() + " " + p.getLastName()).orElse("Unknown");
+        String picture = profile.map(Profile::getProfilePicturePath)
+                .filter(path -> !path.equals(DEFAULT_PICTURE_PATH))
+                .orElse(null);
+        return new AdvisorResponse(a.getId(), name, a.getTitle(),
+                a.getSpecialty(), a.getYearsOfExperience(), a.isActive(), picture);
     }
 }
