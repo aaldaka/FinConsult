@@ -120,6 +120,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks: [internal]
 
   booking-service:
@@ -155,6 +157,8 @@ services:
       - document-uploads:/app/uploads
     depends_on:
       postgres:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks: [internal]
 
