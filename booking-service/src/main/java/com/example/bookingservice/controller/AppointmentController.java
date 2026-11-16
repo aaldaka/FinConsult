@@ -9,6 +9,9 @@ import com.example.bookingservice.model.response.AppointmentResponse;
 import com.example.bookingservice.model.response.MessageResponse;
 import com.example.bookingservice.security.AuthenticatedUser;
 import com.example.bookingservice.service.AppointmentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -36,6 +39,15 @@ public class AppointmentController {
     private final AppointmentService appointmentService;
     private final AppointmentAssembler assembler;
 
+    @Operation(summary = "Book an available slot", description = "The appointment stays pending until the advisor confirms it")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Appointment booked"),
+            @ApiResponse(responseCode = "400", description = "The slot or service cannot be booked, or KYC is missing"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token"),
+            @ApiResponse(responseCode = "403", description = "Caller is not a client, or the account is not active"),
+            @ApiResponse(responseCode = "404", description = "Slot or service not found"),
+            @ApiResponse(responseCode = "409", description = "Someone else booked the slot first")
+    })
     @PostMapping("/book/{slotId}")
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<AppointmentResponse> bookSlot(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long slotId,
@@ -44,6 +56,15 @@ public class AppointmentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(assembler.one(appointment));
     }
 
+    @Operation(summary = "Confirm a pending appointment")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Appointment confirmed"),
+            @ApiResponse(responseCode = "400", description = "Not your appointment, or it is not pending"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token"),
+            @ApiResponse(responseCode = "403", description = "Caller is not an advisor"),
+            @ApiResponse(responseCode = "404", description = "Appointment not found"),
+            @ApiResponse(responseCode = "409", description = "It was cancelled at the same time")
+    })
     @PatchMapping("/{id}/confirm")
     @PreAuthorize("hasRole('ADVISOR')")
     public ResponseEntity<AppointmentResponse> confirmAppointment(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long id) {
@@ -51,6 +72,15 @@ public class AppointmentController {
         return ResponseEntity.ok(assembler.one(appointment));
     }
 
+    @Operation(summary = "Cancel an appointment",
+            description = "The client or the advisor can cancel. A client cancelling less than 24 hours before adds a strike")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Appointment cancelled"),
+            @ApiResponse(responseCode = "400", description = "Not your appointment, or it can no longer be cancelled"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token"),
+            @ApiResponse(responseCode = "404", description = "Appointment not found"),
+            @ApiResponse(responseCode = "409", description = "It was changed at the same time")
+    })
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<MessageResponse> cancelAppointment(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long id,
                                                              @Valid @RequestBody ReasonRequest request) {

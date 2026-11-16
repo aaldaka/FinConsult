@@ -56,6 +56,7 @@ public class SecurityConfiguration {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/internal/**").hasAuthority(InternalKeyFilter.AUTHORITY) // only the internal key grants it
                         .anyRequest().authenticated());
 

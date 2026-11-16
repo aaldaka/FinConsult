@@ -8,6 +8,9 @@ import com.example.documentservice.model.response.AdvisorApplicationResponse;
 import com.example.documentservice.model.response.MyApplicationsResponse;
 import com.example.documentservice.security.AuthenticatedUser;
 import com.example.documentservice.service.AdvisorApplicationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -42,6 +45,14 @@ public class AdvisorApplicationController {
 
     private final AdvisorApplicationService applicationService;
 
+    @Operation(summary = "Apply to become an advisor", description = "Send the application and at least one certificate (PDF, JPG or PNG)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Application submitted"),
+            @ApiResponse(responseCode = "400", description = "Validation error, a missing certificate, or the client is not eligible"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token"),
+            @ApiResponse(responseCode = "403", description = "Caller is not a client"),
+            @ApiResponse(responseCode = "503", description = "The user service is not available")
+    })
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<AdvisorApplicationResponse> submit(@Valid @RequestPart("application") AdvisorApplicationRequest request,
@@ -50,6 +61,12 @@ public class AdvisorApplicationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(applicationService.submit(user.userId(), request, certificates));
     }
 
+    @Operation(summary = "List my advisor applications and how many attempts are left")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "My applications"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token"),
+            @ApiResponse(responseCode = "403", description = "Caller is not a client")
+    })
     @GetMapping("/mine")
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<MyApplicationsResponse> getMyApplications(@AuthenticationPrincipal AuthenticatedUser user) {

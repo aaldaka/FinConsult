@@ -3,6 +3,9 @@ package com.example.notificationservice.controller;
 import com.example.notificationservice.model.enums.AuditAction;
 import com.example.notificationservice.model.response.AuditLogResponse;
 import com.example.notificationservice.service.AuditLogService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -21,6 +24,14 @@ public class AdminLogController {
 
     private final AuditLogService auditLogService;
 
+    @Operation(summary = "List audit logs, newest first, optionally filtered by action")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page of audit logs"),
+            @ApiResponse(responseCode = "400", description = "Unknown action"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token"),
+            @ApiResponse(responseCode = "403", description = "Caller is not an admin"),
+            @ApiResponse(responseCode = "503", description = "The user service is not available")
+    })
     @GetMapping("/logs")
     public ResponseEntity<Page<AuditLogResponse>> getAuditLogs(@RequestParam(defaultValue = "0") int page,
                                                                @RequestParam(defaultValue = "20") int size,

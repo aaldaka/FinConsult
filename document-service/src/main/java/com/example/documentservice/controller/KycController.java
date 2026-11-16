@@ -7,6 +7,9 @@ import com.example.documentservice.model.request.ReasonRequest;
 import com.example.documentservice.model.response.KycDocResponse;
 import com.example.documentservice.security.AuthenticatedUser;
 import com.example.documentservice.service.KycService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -41,6 +44,13 @@ public class KycController {
 
     private final KycService kycService;
 
+    @Operation(summary = "Upload a KYC document", description = "The file is checked in the background, then an admin reviews it")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Document uploaded and pending review"),
+            @ApiResponse(responseCode = "400", description = "Wrong file type, file too large, or a pending document of this type exists"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token"),
+            @ApiResponse(responseCode = "403", description = "Caller is not a client")
+    })
     @PostMapping
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<KycDocResponse> submit(@RequestPart("file") MultipartFile file, @RequestParam DocumentType documentType,
@@ -63,6 +73,12 @@ public class KycController {
         return ResponseEntity.ok(kycService.replaceFile(user.userId(), id, file));
     }
 
+    @Operation(summary = "List my KYC documents and their status")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "My documents"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token"),
+            @ApiResponse(responseCode = "403", description = "Caller is not a client")
+    })
     @GetMapping("/me")
     @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<List<KycDocResponse>> getMyDocuments(@AuthenticationPrincipal AuthenticatedUser user) {

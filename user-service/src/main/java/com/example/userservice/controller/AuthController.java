@@ -9,6 +9,9 @@ import com.example.userservice.model.request.VerifyEmailRequest;
 import com.example.userservice.model.response.MessageResponse;
 import com.example.userservice.model.response.Response;
 import com.example.userservice.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -33,12 +36,25 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @Operation(summary = "Log in and receive a JWT")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logged in"),
+            @ApiResponse(responseCode = "400", description = "Validation error"),
+            @ApiResponse(responseCode = "401", description = "Wrong email or password, or the account is blacklisted"),
+            @ApiResponse(responseCode = "403", description = "Account is unverified or deactivated")
+    })
     @PostMapping("/login")
     public ResponseEntity<Response> login(@Valid @RequestBody LoginRequest req){
         Response response = authService.login(req);
         return ResponseEntity.ok(response); //ok 200
     }
 
+    @Operation(summary = "Register a new client account", description = "A verification email is sent to the address")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Account created, not verified yet"),
+            @ApiResponse(responseCode = "400", description = "Validation error"),
+            @ApiResponse(responseCode = "409", description = "Email already in use")
+    })
     @PostMapping("/register") //returning data
     public ResponseEntity<Response> register(@Valid @RequestBody RegistrationRequest req){
         Response response = authService.register(req);

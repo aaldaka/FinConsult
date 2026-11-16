@@ -8,6 +8,9 @@ import com.example.bookingservice.model.response.MessageResponse;
 import com.example.bookingservice.model.response.SlotResponse;
 import com.example.bookingservice.security.AuthenticatedUser;
 import com.example.bookingservice.service.AvailabilitySlotService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -52,6 +55,11 @@ public class AvailabilitySlotController { //posting the slot
         return ResponseEntity.ok(new MessageResponse("Slot deleted successfully"));
     }
 
+    @Operation(summary = "List an advisor's available slots")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The available slots"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token")
+    })
     @GetMapping("/advisor/{advisorId}")
     public ResponseEntity<List<SlotResponse>> getAvailableSlots(@PathVariable Long advisorId) {
         List<AvailabilitySlot> slots = availabilitySlotService.getAvailableSlots(advisorId);

@@ -7,6 +7,9 @@ import com.example.notificationservice.security.AuthenticatedUser;
 import com.example.notificationservice.service.NotificationService;
 import com.example.notificationservice.service.NotificationStreamService;
 import com.example.notificationservice.service.StreamTicketService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +36,11 @@ public class NotificationController {
     private final NotificationStreamService streamService;
     private final StreamTicketService streamTicketService;
 
+    @Operation(summary = "List my notifications, newest first")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The notifications"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token")
+    })
     @GetMapping("/mine")
     public ResponseEntity<List<NotificationResponse>> getMyNotifications(@AuthenticationPrincipal AuthenticatedUser user) {
         return ResponseEntity.ok(notificationService.getMyNotifications(user.userId()));
@@ -62,6 +70,12 @@ public class NotificationController {
     }
 
     // authenticated with ?ticket= from the endpoint above, see JwtRequestFilter
+    @Operation(summary = "Open the live notification stream (server-sent events)",
+            description = "Get a ticket from POST /notifications/stream-ticket first and pass it as ?ticket=")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The stream is open"),
+            @ApiResponse(responseCode = "401", description = "Missing, expired or already used ticket")
+    })
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@AuthenticationPrincipal AuthenticatedUser user) {
         return streamService.subscribe(user.userId());

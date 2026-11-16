@@ -8,6 +8,9 @@ import com.example.userservice.model.request.UpdateAdvisorRequest;
 import com.example.userservice.model.response.AdvisorResponse;
 import com.example.userservice.security.MyUserDetails;
 import com.example.userservice.service.AdvisorService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -47,6 +50,12 @@ public class AdvisorController {
         return ResponseEntity.ok(mapper.toAdvisor(advisorService.getById(id)));
     }
 
+    @Operation(summary = "List active advisors, optionally by specialty")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The advisors"),
+            @ApiResponse(responseCode = "400", description = "Unknown specialty"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token")
+    })
     @GetMapping // can have specific advisors otherwise all
     public ResponseEntity<List<AdvisorResponse>> searchAdvisors(@RequestParam(required = false) Specialty specialty) {
         List<Advisor> advisors = (specialty != null)

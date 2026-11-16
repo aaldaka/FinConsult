@@ -11,6 +11,9 @@ import com.example.userservice.model.response.UserSummaryResponse;
 import com.example.userservice.security.MyUserDetails;
 import com.example.userservice.service.AdvisorService;
 import com.example.userservice.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -50,6 +53,12 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(mapper.toAdvisor(advisor));
     }
 
+    @Operation(summary = "List the active clients")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The clients"),
+            @ApiResponse(responseCode = "401", description = "Missing or invalid token"),
+            @ApiResponse(responseCode = "403", description = "Caller is not an admin")
+    })
     @GetMapping("/clients")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserSummaryResponse>> getActiveClients() {
