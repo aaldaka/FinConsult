@@ -44,32 +44,44 @@ export function LoginPage() {
   }
 
   return (
-    <AuthShell title="Welcome back" subtitle="Log in to FinConsult">
+    <AuthShell title="Hi, welcome back" subtitle="Log in to see your consultations and advisors" tabs>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {expired && <Alert>Your session has ended, please log in again.</Alert>}
         {error && <Alert>{error}</Alert>}
 
-        <Input label="Email" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
+        <Input
+          label="Email address"
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          error={errors.email?.message}
+          {...register('email')}
+        />
         <Input
           label="Password"
           type="password"
           autoComplete="current-password"
+          placeholder="Your password"
           error={errors.password?.message}
           {...register('password')}
         />
+
+        <div className="flex justify-end text-sm">
+          <Link to="/forgot-password" className="text-royal transition-colors hover:text-royal/80 hover:underline">
+            Forgot password?
+          </Link>
+        </div>
 
         <Button type="submit" fullWidth loading={isSubmitting}>
           Log in
         </Button>
 
-        <div className="flex items-center justify-between text-sm">
-          <Link to="/forgot-password" className="text-royal transition-colors hover:text-royal/80 hover:underline">
-            Forgot password?
+        <p className="pt-2 text-center text-sm text-muted">
+          New to FinConsult?{' '}
+          <Link to="/register" className="font-medium text-royal transition-colors hover:text-royal/80 hover:underline">
+            Create an account
           </Link>
-          <Link to="/register" className="text-royal transition-colors hover:text-royal/80 hover:underline">
-            Create account
-          </Link>
-        </div>
+        </p>
       </form>
     </AuthShell>
   )

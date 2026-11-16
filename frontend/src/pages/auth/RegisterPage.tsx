@@ -61,7 +61,7 @@ export function RegisterPage() {
   }
 
   return (
-    <AuthShell title="Create your account" subtitle="Book advisors through FinConsult">
+    <AuthShell title="Create your account" subtitle="Book advisors through FinConsult" tabs>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         {error && <Alert>{error}</Alert>}
 
