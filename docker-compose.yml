@@ -206,6 +206,8 @@ services:
     environment:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
+      TEST_DB_URL: jdbc:postgresql://postgres:5432/finconsult_test
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/finconsult_test
     volumes:
       - jenkins_data:/var/jenkins_home
       - ./:/workspace:ro
