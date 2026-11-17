@@ -1,2 +1,4 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+# shell scripts run inside linux containers
+*.sh text eol=lf
