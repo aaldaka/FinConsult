@@ -196,6 +196,24 @@ services:
       - gateway
     networks: [internal]
 
+  # ci: runs the Jenkinsfile. The ui is on http://localhost:9090. The tests use the finconsult_test database on postgres,
+  # with the same login as the services
+  jenkins:
+    build: ./docker/jenkins
+    ports:
+      - "9090:8080"
+      - "50000:50000"
+    environment:
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      - ./:/workspace:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
 networks:
   internal:
 
@@ -204,3 +222,4 @@ volumes:
   user-uploads:
   document-uploads:
   kafka-data:
+  jenkins_data:
