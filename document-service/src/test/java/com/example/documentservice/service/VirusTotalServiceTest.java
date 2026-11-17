@@ -136,13 +136,13 @@ class VirusTotalServiceTest {
     void aWaitingCallGetsThePermitBackOnceTheWindowIsOver() {
         VirusTotalService service = new VirusTotalService(KEY, baseUrl, Duration.ofSeconds(5), Duration.ofMillis(300));
 
+        long started = System.nanoTime();
         for (int i = 0; i < 4; i++) {
             service.lookup("clean-" + i);
         }
-        long started = System.nanoTime();
         assertEquals(ScanResult.Status.CLEAN, service.lookup("clean-5").status());
 
         assertEquals(5, calls.get());
-        assertTrue(System.nanoTime() - started >= Duration.ofMillis(200).toNanos(), "it waited for the release");
+        assertTrue(System.nanoTime() - started >= Duration.ofMillis(300).toNanos(), "it waited for the release");
     }
 }
