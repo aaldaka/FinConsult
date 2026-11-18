@@ -14,6 +14,7 @@ import { Alert } from '@/components/ui/Alert'
 import { Badge } from '@/components/ui/Badge'
 import { FilePreview } from '@/components/ui/FilePreview'
 import { errorMessage } from '@/lib/errors'
+import { pictureUrl } from '@/lib/format'
 import { SPECIALTIES, labelFor } from '@/lib/options'
 import type { Specialty, UserRole } from '@/api/types'
 
@@ -101,7 +102,7 @@ function ProfileDetailsCard() {
 
       <div className="mb-6 flex items-center gap-4">
         <img
-          src={data.profilePicturePath.startsWith('/') ? `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080'}${data.profilePicturePath}` : data.profilePicturePath}
+          src={pictureUrl(data.profilePicturePath)}
           alt="Profile"
           className="size-16 rounded-full border border-hairline object-cover shadow-card transition-transform duration-200 hover:scale-105"
         />

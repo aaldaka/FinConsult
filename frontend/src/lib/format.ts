@@ -41,8 +41,14 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-/** A picture path from the API (/uploads/...) as a full URL through the gateway; full URLs are kept as they are. */
-export function pictureUrl(path: string): string {
+const DEFAULT_PICTURE = '/default.jpg' // served by the frontend itself, from public/
+
+/**
+ * A picture path from the API (/uploads/...) as a full URL through the gateway; full URLs are kept as they are.
+ * An empty path or the default picture is the frontend's own /default.jpg, which the gateway does not serve.
+ */
+export function pictureUrl(path?: string | null): string {
+  if (!path || path === DEFAULT_PICTURE || path === 'default.jpg') return DEFAULT_PICTURE
   return path.startsWith('/') ? `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080'}${path}` : path
 }
 
