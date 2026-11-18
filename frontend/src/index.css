@@ -14,7 +14,7 @@
   --color-pending: #f59e0b;
   --color-danger: #dc2626;
 
-  --color-canvas: #f8fafc;
+  --color-canvas: #f3f5f9; /* a light navy tint, so the white cards stand off the page */
   --color-surface: #ffffff;
   --color-ink: #0f172a;
   --color-muted: #475569;
@@ -77,6 +77,36 @@
   background-image: linear-gradient(160deg, var(--color-navy) 0%, var(--color-royal) 100%);
 }
 
+/* the page bands and the dashboard hero: it starts at exactly the nav bar's navy at the top, so the two read as one
+   surface, and deepens to royal blue further down */
+@utility gradient-band {
+  background-image: linear-gradient(180deg, var(--color-navy) 0%, #13224f 55%, #1b3170 100%);
+}
+
+/* the backgrounds of the specialty illustrations on the advisor cards, one hue per specialty, all deep enough for
+   white icons */
+@utility specialty-general {
+  background-image: linear-gradient(150deg, var(--color-navy) 0%, var(--color-royal) 100%);
+}
+@utility specialty-loans {
+  background-image: linear-gradient(150deg, #0c3b3a 0%, #17786b 100%);
+}
+@utility specialty-mortgages {
+  background-image: linear-gradient(150deg, #1e3a8a 0%, #3b82f6 100%);
+}
+@utility specialty-investments {
+  background-image: linear-gradient(150deg, #052e24 0%, #0f8a5f 100%);
+}
+@utility specialty-retirement {
+  background-image: linear-gradient(150deg, #3b1a5c 0%, #8a4fb8 100%);
+}
+@utility specialty-insurance {
+  background-image: linear-gradient(150deg, #0b3954 0%, #0e8fae 100%);
+}
+@utility specialty-business {
+  background-image: linear-gradient(150deg, #161b26 0%, #4a5468 100%);
+}
+
 /* a touch lighter than gradient-navy, used on the admin deactivate cards */
 @utility gradient-navy-soft {
   background-image: linear-gradient(160deg, #142142 0%, #2a4aa0 100%);
@@ -86,13 +116,6 @@
 @utility gradient-auth {
   background-image: linear-gradient(150deg, var(--color-royal) 0%, #2f5bd3 55%, #4f7cf0 100%);
 }
-/* frosted glass for the top nav */
-@utility glass-nav {
-  background-image: linear-gradient(160deg, rgb(11 17 32 / 0.9) 0%, rgb(30 58 138 / 0.86) 100%);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-}
-
 @utility card-interactive {
   transition:
     transform 200ms var(--ease-out-expo),

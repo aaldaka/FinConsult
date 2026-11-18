@@ -13,6 +13,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Alert } from '@/components/ui/Alert'
 import { FilePreview } from '@/components/ui/FilePreview'
 import { ReplaceFileModal } from '@/components/ReplaceFileModal'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { SPECIALTIES, labelFor } from '@/lib/options'
@@ -118,12 +119,10 @@ export function ApplyPage() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-in-up">
-        <h1 className="text-2xl font-semibold text-ink">Become an advisor</h1>
-        <p className="text-sm text-muted">
-          Apply with your credentials. An admin reviews every application before an advisor account is created.
-        </p>
-      </div>
+      <PageHeader
+        title="Become an advisor"
+        description="Apply with your credentials. An admin reviews every application before an advisor account is created."
+      />
 
       {isLoading && <Spinner />}
 

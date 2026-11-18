@@ -13,6 +13,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Alert } from '@/components/ui/Alert'
 import { Badge } from '@/components/ui/Badge'
 import { FilePreview } from '@/components/ui/FilePreview'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { errorMessage } from '@/lib/errors'
 import { pictureUrl } from '@/lib/format'
 import { SPECIALTIES, labelFor } from '@/lib/options'
@@ -280,15 +281,14 @@ export function ProfilePage() {
   if (!user) return null
 
   return (
-    <div className="stagger max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink">Profile</h1>
-        <p className="text-sm text-muted">Manage your account details.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Profile" description="Manage your account details." />
 
-      <ProfileDetailsCard />
-      {user.role === 'ADVISOR' && <AdvisorDetailsCard />}
-      <ChangePasswordCard />
+      <div className="stagger mx-auto max-w-2xl space-y-6">
+        <ProfileDetailsCard />
+        {user.role === 'ADVISOR' && <AdvisorDetailsCard />}
+        <ChangePasswordCard />
+      </div>
     </div>
   )
 }

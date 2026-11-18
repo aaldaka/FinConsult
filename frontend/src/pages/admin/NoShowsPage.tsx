@@ -12,12 +12,23 @@ import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { cn } from '@/lib/cn'
 import { errorMessage } from '@/lib/errors'
 import { formatDateTime } from '@/lib/format'
 import { labelFor } from '@/lib/options'
 
 export function NoShowsPage() {
+  return (
+    <div className="space-y-6">
+      <PageHeader title="No-shows" description="Excusing a no-show removes the strike it added to the client." />
+      <NoShowsPanel />
+    </div>
+  )
+}
+
+// the list and the excuse dialog, also shown on the No-shows tab of the admin console
+export function NoShowsPanel() {
   const queryClient = useQueryClient()
   // ?appointment=ID comes from the audit log link and highlights that no-show
   const [searchParams] = useSearchParams()
@@ -44,11 +55,6 @@ export function NoShowsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-in-up">
-        <h1 className="text-2xl font-semibold text-ink">No-shows</h1>
-        <p className="text-sm text-muted">Excusing a no-show removes the strike it added to the client.</p>
-      </div>
-
       {actionError && <Alert>{actionError}</Alert>}
       {error && <Alert>{errorMessage(error)}</Alert>}
       {isLoading && <Spinner />}

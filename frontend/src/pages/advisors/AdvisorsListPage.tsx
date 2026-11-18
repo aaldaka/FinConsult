@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Award, Briefcase, CalendarCheck, UserRound, Users } from 'lucide-react'
+import { Award, Briefcase, CalendarCheck, Users } from 'lucide-react'
 import { listAdvisors } from '@/api/advisors'
 import type { AdvisorResponse, Specialty } from '@/api/types'
 import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
-import { Logo } from '@/components/ui/Logo'
+import { SpecialtyArt } from '@/components/ui/SpecialtyArt'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { errorMessage } from '@/lib/errors'
 import { initials, pictureUrl } from '@/lib/format'
 import { SPECIALTIES, labelFor } from '@/lib/options'
 
-// the top of a card: the advisor's photo, or their initials on the brand blue until they upload one
+// the top of a card: the advisor's photo, or an illustration of their specialty with their initials until they upload one
 function AdvisorPhoto({ advisor }: { advisor: AdvisorResponse }) {
   const [broken, setBroken] = useState(false)
   const [first, ...rest] = advisor.name.split(' ')
@@ -29,10 +30,12 @@ function AdvisorPhoto({ advisor }: { advisor: AdvisorResponse }) {
           className="size-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
         />
       ) : (
-        <div className="gradient-auth relative flex size-full items-center justify-center">
-          <Logo className="absolute -bottom-6 -right-6 size-36 text-white/10" title="" />
-          <span className="font-serif text-5xl font-semibold tracking-wide text-white">{initials(first, rest.join(' '))}</span>
-        </div>
+        <>
+          <SpecialtyArt specialty={advisor.specialty} />
+          <span className="absolute bottom-3 right-3 flex size-11 items-center justify-center rounded-full bg-surface font-serif text-sm font-semibold text-navy shadow-card ring-2 ring-white/60">
+            {initials(first, rest.join(' '))}
+          </span>
+        </>
       )}
 
       <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-lg bg-success px-2 py-1 text-xs font-semibold text-white shadow-card">
@@ -63,22 +66,13 @@ function AdvisorCard({ advisor }: { advisor: AdvisorResponse }) {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 border-t border-hairline text-sm font-medium">
-        <Link
-          to={link}
-          className="flex items-center justify-center gap-1.5 py-3 text-muted transition-colors duration-200 hover:bg-canvas hover:text-ink"
-        >
-          <UserRound className="size-4 text-royal" aria-hidden="true" />
-          View profile
-        </Link>
-        <Link
-          to={link}
-          className="flex items-center justify-center gap-1.5 border-l border-hairline py-3 text-royal transition-colors duration-200 hover:bg-royal hover:text-white"
-        >
-          <CalendarCheck className="size-4" aria-hidden="true" />
-          Book now
-        </Link>
-      </div>
+      <Link
+        to={link}
+        className="flex items-center justify-center gap-1.5 border-t border-hairline py-3 text-sm font-medium text-royal transition-colors duration-200 hover:bg-royal hover:text-white"
+      >
+        <CalendarCheck className="size-4" aria-hidden="true" />
+        Book now
+      </Link>
     </article>
   )
 }
@@ -93,12 +87,12 @@ export function AdvisorsListPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 animate-fade-in-up">
-        <div>
-          <h1 className="text-3xl font-semibold text-ink">Our advisors</h1>
-          <p className="text-sm text-muted">Certified specialists for every financial decision. Pick one and book a slot.</p>
-        </div>
+      <PageHeader
+        title="Our advisors"
+        description="Certified specialists for every financial decision. Pick one and book a slot."
+      />
 
+      <div className="flex flex-wrap items-end justify-end gap-3 animate-fade-in-up">
         <div className="w-52">
           <Select label="Specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value as Specialty | '')}>
             <option value="">All specialties</option>

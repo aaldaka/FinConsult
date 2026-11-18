@@ -1,20 +1,23 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Paperclip, RefreshCw, ShieldCheck, Upload } from 'lucide-react'
+import { FileClock, FileX, Paperclip, RefreshCw, ShieldAlert, ShieldCheck, Upload } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { listMyDocuments, replaceDocumentFile, submitDocuments } from '@/api/kyc'
 import type { DocumentType, KycDocResponse } from '@/api/types'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
-import { Badge, toneForStatus } from '@/components/ui/Badge'
+import { StatusPill } from '@/components/ui/StatusPill'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
 import { FilePreview } from '@/components/ui/FilePreview'
 import { ReplaceFileModal } from '@/components/ReplaceFileModal'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
 import { DOCUMENT_TYPES, labelFor } from '@/lib/options'
+import { cn } from '@/lib/cn'
 
 interface QueuedDocument {
   file: File
@@ -26,6 +29,14 @@ const ACCEPTED_TYPES = 'image/jpeg,image/png,application/pdf,.docx'
 // the background check has not finished yet, so the file can't be replaced
 function beingChecked(doc: KycDocResponse) {
   return !doc.flagged && !doc.detectedType && doc.status === 'PENDING'
+}
+
+// the icon on a document row, coloured by where the document stands
+function docIcon(doc: KycDocResponse): { icon: LucideIcon; className: string } {
+  if (doc.flagged) return { icon: ShieldAlert, className: 'bg-danger/10 text-danger' }
+  if (doc.status === 'APPROVED') return { icon: ShieldCheck, className: 'bg-success/10 text-success' }
+  if (doc.status === 'REJECTED') return { icon: FileX, className: 'bg-danger/10 text-danger' }
+  return { icon: FileClock, className: 'bg-pending/10 text-amber-700' }
 }
 
 export function KycPage() {
@@ -86,10 +97,7 @@ export function KycPage() {
 
   return (
       <div className="space-y-6">
-        <div className="animate-fade-in-up">
-          <h1 className="text-2xl font-semibold text-ink">KYC documents</h1>
-          <p className="text-sm text-muted">Some services require an approved identity document before you can book.</p>
-        </div>
+        <PageHeader title="KYC documents" description="Some services require an approved identity document before you can book." />
 
         <Card className="animate-fade-in-up">
           <h2 className="mb-4 flex items-center gap-2 font-semibold text-ink">
@@ -177,40 +185,56 @@ export function KycPage() {
         )}
 
         {data && data.length > 0 && (
-            <div className="stagger space-y-2">
-              {data.map((doc) => (
-                  <Card key={doc.id} interactive className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
+            <Card className="overflow-hidden p-0 animate-fade-in-up">
+              <div className="flex flex-wrap items-end justify-between gap-2 border-b border-hairline px-5 py-4">
+                <div>
+                  <h2 className="font-serif text-xl font-semibold text-ink">Your documents</h2>
+                  <p className="mt-1 text-sm text-muted">
+                    {data.filter((d) => d.status === 'APPROVED').length} approved ·{' '}
+                    {data.filter((d) => d.status === 'PENDING').length} pending ·{' '}
+                    {data.filter((d) => d.status === 'REJECTED').length} rejected
+                  </p>
+                </div>
+              </div>
+              <ul className="stagger divide-y divide-hairline">
+                {data.map((doc) => {
+                  const { icon: Icon, className: iconClass } = docIcon(doc)
+                  return (
+                    <li key={doc.id} className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4 transition-colors duration-150 hover:bg-canvas/60">
+                      <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl', iconClass)} aria-hidden="true">
+                        <Icon className="size-5" />
+                      </span>
+                      <div className="min-w-0 flex-1 basis-48">
                         <p className="font-medium text-ink">{labelFor(doc.documentType)}</p>
-                        <Badge tone={toneForStatus(doc.status)}>{doc.status}</Badge>
-                        {doc.flagged && <Badge tone="danger">Flagged for review</Badge>}
-                        {!doc.flagged && !doc.detectedType && doc.status === 'PENDING' && (
-                          <Badge tone="pending">Being checked</Badge>
-                        )}
+                        <p className="truncate text-sm text-muted" title={doc.originalFileName}>
+                          {doc.originalFileName}
+                        </p>
+                        {doc.rejectionReason && <p className="mt-1 text-xs text-danger">Rejected: {doc.rejectionReason}</p>}
                       </div>
-                      <p className="text-sm text-muted">{doc.originalFileName}</p>
-                      {doc.rejectionReason && <p className="mt-1 text-xs text-danger">Rejected: {doc.rejectionReason}</p>}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <p className="text-xs text-muted">Submitted {formatDate(doc.submittedAt)}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusPill status={doc.status} />
+                        {doc.flagged && <StatusPill status="FLAGGED" label="Flagged for review" tone="danger" />}
+                        {beingChecked(doc) && <StatusPill status="CHECKING" label="Being checked" tone="pending" />}
+                      </div>
+                      <p className="tabular w-32 text-xs text-muted sm:text-right">Submitted {formatDate(doc.submittedAt)}</p>
                       <Button
                           size="sm"
-                          variant="secondary"
+                          variant="ghost"
                           disabled={beingChecked(doc)}
-                          title={beingChecked(doc) ? 'Wait until the check has finished' : undefined}
+                          title={beingChecked(doc) ? 'Wait until the check has finished' : 'Upload a new file for this document'}
                           onClick={() => {
                             setReplaceError(null)
                             setReplaceTarget(doc)
                           }}
                       >
                         <RefreshCw className="size-4" aria-hidden="true" />
-                        Replace file
+                        Replace
                       </Button>
-                    </div>
-                  </Card>
-              ))}
-            </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </Card>
         )}
 
         {replaceTarget && (

@@ -17,6 +17,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { cn } from '@/lib/cn'
 import { errorMessage } from '@/lib/errors'
 import { formatDate } from '@/lib/format'
@@ -95,13 +96,12 @@ export function ApplicationReviewPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 animate-fade-in-up">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Advisor applications</h1>
-          <p className="text-sm text-muted">
-            Approving creates the advisor profile and switches the applicant's role.
-          </p>
-        </div>
+      <PageHeader
+        title="Advisor applications"
+        description="Approving creates the advisor profile and switches the applicant's role."
+      />
+
+      <div className="flex flex-wrap items-end justify-end gap-3 animate-fade-in-up">
         <div className="w-40">
           <Select
             label="Status"

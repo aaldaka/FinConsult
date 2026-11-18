@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Alert } from '@/components/ui/Alert'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { errorMessage, isConflict } from '@/lib/errors'
 import { formatTime } from '@/lib/format'
 import { labelFor } from '@/lib/options'
@@ -91,22 +92,26 @@ export function AdvisorDetailPage() {
 
   return (
     <div className="stagger space-y-6">
-      <Link
-        to="/advisors"
-        className="inline-flex items-center gap-1.5 text-sm text-royal transition-colors duration-200 hover:text-royal/80 hover:underline"
+      <PageHeader
+        eyebrow={
+          <Link
+            to="/advisors"
+            className="inline-flex items-center gap-1.5 transition-colors duration-200 hover:text-white hover:underline"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Back to advisors
+          </Link>
+        }
+        title={advisor.name}
+        description={advisor.title}
       >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        Back to advisors
-      </Link>
-
-      <Card>
-        <h1 className="text-xl font-semibold text-ink">{advisor.name}</h1>
-        <p className="text-sm text-muted">{advisor.title}</p>
-        <div className="mt-3 flex flex-wrap gap-4 text-sm">
-          <span className="font-medium text-royal">{labelFor(advisor.specialty)}</span>
-          <span className="text-muted">{advisor.yearsOfExperience} years experience</span>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <span className="rounded-full border border-gold/60 px-3 py-1 font-medium text-gold">{labelFor(advisor.specialty)}</span>
+          <span className="rounded-full border border-white/25 px-3 py-1 text-white/80">
+            {advisor.yearsOfExperience} years experience
+          </span>
         </div>
-      </Card>
+      </PageHeader>
 
       <Card>
         <h2 className="mb-4 flex items-center gap-2 font-semibold text-ink">

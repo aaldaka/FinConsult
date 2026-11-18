@@ -210,15 +210,15 @@ export function DeactivatePanel() {
   }))
 
   return (
-    <section>
-      <h2 className="mb-1 text-center font-serif text-xl font-semibold text-ink">Deactivate accounts</h2>
-      <p className="mb-4 text-center text-sm text-muted">Pick who to deactivate. Only active accounts are listed.</p>
+    <section className="mx-auto max-w-3xl">
+      <h2 className="font-serif text-xl font-semibold text-ink">Deactivate accounts</h2>
+      <p className="mb-4 mt-1 text-sm text-muted">Pick who to deactivate. Only active accounts are listed.</p>
       {(clients.error || advisors.error) && (
         <div className="mb-4">
           <Alert>{errorMessage(clients.error ?? advisors.error)}</Alert>
         </div>
       )}
-      <div className="mx-auto grid max-w-3xl gap-5 sm:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2">
         <FlipCard
           kind="client"
           options={clientOptions}

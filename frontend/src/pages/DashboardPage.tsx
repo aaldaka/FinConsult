@@ -110,7 +110,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-12">
       {/* full width: breaks out of the centered main column */}
-      <section className="relative left-1/2 -mt-8 w-screen -translate-x-1/2 overflow-hidden gradient-navy text-white">
+      <section className="relative left-1/2 -mt-8 w-screen -translate-x-1/2 overflow-hidden gradient-band text-white">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
