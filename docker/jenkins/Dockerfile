@@ -17,4 +17,7 @@ RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -
     && unzip -q /tmp/awscliv2.zip -d /tmp \
     && /tmp/aws/install \
     && rm -rf /tmp/awscliv2.zip /tmp/aws
+
+# the container runs as root but the workspaces belong to jenkins, so git would refuse them as dubious ownership
+RUN git config --system --add safe.directory '*'
 USER jenkins
