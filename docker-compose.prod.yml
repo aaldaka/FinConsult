@@ -1,0 +1,11 @@
+services:
+  notification-service:
+    image: ${REGISTRY}/finconsult-notification-service:${TAG}
+  user-service:
+    image: ${REGISTRY}/finconsult-user-service:${TAG}
+  booking-service:
+    image: ${REGISTRY}/finconsult-booking-service:${TAG}
+  document-service:
+    image: ${REGISTRY}/finconsult-document-service:${TAG}
+  frontend:
+    image: ${REGISTRY}/finconsult-frontend:${TAG}
