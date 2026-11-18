@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// runs on finconsult_test (TEST_DB_URL), which the main app's tests build. The user service is a mock, never called.
+// runs on finconsult_test (TEST_DB_URL), which docker/db/init/00-create-test-db.sh builds. The user service is a mock, never called.
 // The advisor id is an existing advisor (the slots have a foreign key to it), and only the slots a test creates are deleted
 @SpringBootTest
 @AutoConfigureMockMvc

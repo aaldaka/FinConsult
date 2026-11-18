@@ -127,7 +127,7 @@ public class NotificationEventHandler {
         }
     }
 
-    // the same json the main app pushed for a new notification: the NotificationResponse fields
+    // the same json the original monolith pushed for a new notification: the NotificationResponse fields
     private Map<String, Object> toStreamMessage(NotificationResponse notification) {
         Map<String, Object> message = new LinkedHashMap<>();
         message.put("id", notification.getId());

@@ -71,7 +71,7 @@ public class InternalCancellationService {
         return (given == null || given.isBlank()) ? fallback : given.trim();
     }
 
-    // like the main app's advisor deactivation: each appointment is cancelled as if the advisor cancelled it,
+    // used when user-service deactivates an advisor: each appointment is cancelled as if the advisor cancelled it,
     // the slot is freed and the client is told
     public CancellationSummary cancelForAdvisor(Long advisorId, String givenReason, Long adminId) {
         String reason = reasonOr(givenReason, ADVISOR_REASON);
@@ -101,7 +101,7 @@ public class InternalCancellationService {
         return new CancellationSummary(cancelled, failed);
     }
 
-    // like the main app's admin cancel: the slot is freed and the advisor is told
+    // used when user-service deactivates a client, like an admin cancel: the slot is freed and the advisor is told
     public CancellationSummary cancelForClient(Long clientId, String givenReason, Long adminId) {
         String reason = reasonOr(givenReason, CLIENT_REASON);
         List<Appointment> upcoming = appointmentRepository.findByClientIdAndStatusIn(clientId, CANCELLABLE);

@@ -45,7 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-// the main app's KycConcurrencyTest, ported. Runs on finconsult_test (TEST_DB_URL), no @Transactional on the class, so
+// the original monolith's KycConcurrencyTest, ported. Runs on finconsult_test (TEST_DB_URL), no @Transactional on the class, so
 // the unique index and the version checks are the real ones. Each test makes its own users with TestPeople and deletes
 // them with their documents afterwards, files go into a temp dir, and the user service and the stubs are mocks
 @SpringBootTest

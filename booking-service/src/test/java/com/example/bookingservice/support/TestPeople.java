@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 // clients and advisors made only for one test, with unique emails, because the cascades cancel every active appointment
-// of a person and must never reach rows another test or the main app's tests own. Call deleteCreated after
+// of a person and must never reach rows another test or another service's tests own. Call deleteCreated after
 // SlotTestData.deleteCreated, the appointments and slots point at these rows
 public class TestPeople {
 

@@ -13,8 +13,8 @@ import javax.crypto.SecretKey;
 import java.util.Optional;
 
 /**
- * Validates the HMAC-signed JWTs issued by the main app. Same Base64 secret and the same
- * parsing as the main app, but the caller is read from the claims, never from a database.
+ * Validates the HMAC-signed JWTs issued by user-service. Same Base64 secret and the same
+ * parsing as user-service, but the caller is read from the claims, never from a database.
  */
 @Slf4j
 @Component

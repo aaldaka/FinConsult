@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// the audit log, admins only (see SecurityConfiguration). The same path, parameters and page shape as the main app
+// the audit log, admins only (see SecurityConfiguration). The same path, parameters and page shape as the original monolith
 @RestController
 @RequestMapping("/admin")
 @RequiredArgsConstructor

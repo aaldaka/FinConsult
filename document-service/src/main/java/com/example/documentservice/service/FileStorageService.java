@@ -15,7 +15,7 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.UUID;
 
-// stores the uploaded KYC documents and certificates on local disk. The stored path keeps the main app's form,
+// stores the uploaded KYC documents and certificates on local disk. The stored path keeps the original monolith's form,
 // /uploads/<subfolder>/<file>, so the paths already in the database still load; on disk it lives under app.upload-dir.
 // The extension comes from the content type, never from the client's file name, and loads are confined to the upload
 // directory so a stored path cannot reach anything outside it

@@ -57,7 +57,7 @@ public class AuditEventHandler {
         entry.setEntityType(payload.entityType());
         entry.setEntityId(payload.entityId());
         entry.setDetails(shortened(payload.details()));
-        // the column has no time zone, so the time is stored in this server's zone like the main app did
+        // the column has no time zone, so the time is stored in this server's zone like the original monolith did
         entry.setTimestamp(event.occurredAt().atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime());
 
         Boolean stored = transactionTemplate.execute(status -> {

@@ -3,8 +3,8 @@ package com.example.userservice.integration;
 import com.example.userservice.model.enums.AuditAction;
 
 /**
- * Writes an entry in the audit log, which belongs to another area. In the main app the entry was saved
- * in the same transaction. Until this is connected, the implementation only logs.
+ * Writes an entry in the audit log, which belongs to another area. In the original monolith the entry was saved
+ * in the same transaction. KafkaAuditRecorder sends it as an AUDIT event on audit-events, and notification-service stores it.
  */
 public interface AuditRecorder {
 

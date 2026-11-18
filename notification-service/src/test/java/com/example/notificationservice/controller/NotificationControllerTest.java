@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// runs on finconsult_test (TEST_DB_URL), which the main app's tests build, with real users from its users table
+// runs on finconsult_test (TEST_DB_URL), which docker/db/init/00-create-test-db.sh builds, with real users from its users table
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

@@ -14,7 +14,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import java.time.LocalDateTime;
 
 /**
- * Maps exceptions to HTTP responses, all in the same {@link ErrorResponse} shape as the main app.
+ * Maps exceptions to HTTP responses, all in the same {@link ErrorResponse} shape as the other services.
  */
 @Slf4j
 @RestControllerAdvice

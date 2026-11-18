@@ -7,7 +7,7 @@ import io.jsonwebtoken.security.Keys;
 
 import java.util.Date;
 
-/** Builds real signed tokens the way the main app does, for the tests. */
+/** Builds real signed tokens the way user-service does, for the tests. */
 public final class TestTokens {
 
     // a second test-only secret (Base64 of 44 bytes), for tokens signed with the wrong key

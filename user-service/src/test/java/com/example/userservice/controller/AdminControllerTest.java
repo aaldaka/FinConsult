@@ -47,7 +47,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// runs on finconsult_test (TEST_DB_URL), which the main app's tests build. Every user here is created by the
+// runs on finconsult_test (TEST_DB_URL), which docker/db/init/00-create-test-db.sh builds. Every user here is created by the
 // test (or by the endpoint under test) with a unique email and deleted afterwards, real users are never touched.
 // The email publisher and the two cross-area points (appointments and the audit log) are mocked, so we can check
 // exactly when they are called

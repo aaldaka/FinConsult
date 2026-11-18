@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// runs on finconsult_test (TEST_DB_URL), which the main app's tests build. It writes no notifications,
+// runs on finconsult_test (TEST_DB_URL), which docker/db/init/00-create-test-db.sh builds. It writes no notifications,
 // so there is nothing to clean up, it only needs a real user id
 @SpringBootTest
 @AutoConfigureMockMvc

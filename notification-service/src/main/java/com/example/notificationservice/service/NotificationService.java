@@ -16,7 +16,7 @@ import java.util.List;
 
 /**
  * Stores and reads in-app notifications. Users and appointments are only ids here,
- * the data they came from lives in the main app.
+ * the data they came from lives in user-service and booking-service.
  */
 @Slf4j
 @Service

@@ -25,7 +25,7 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // id of the user in the main app, only a number: this service has no users table and no foreign keys
+    // id of the user in user-service, only a number: this service has no users table and no foreign keys
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
@@ -37,7 +37,7 @@ public class Notification {
     @Column
     private boolean isRead = false;
 
-    // id of the appointment in the main app, null when the notification is not about one
+    // id of the appointment in booking-service, null when the notification is not about one
     @Column(name = "related_appointment_id")
     private Long relatedAppointmentId;
 

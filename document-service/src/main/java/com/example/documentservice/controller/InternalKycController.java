@@ -17,7 +17,7 @@ public class InternalKycController {
 
     private final KycService kycService;
 
-    // without a documentType any approved document counts, like the main app's booking check
+    // without a documentType any approved document counts, for booking-service's check before a booking
     @GetMapping("/approved")
     public KycApproval approved(@RequestParam Long userId, @RequestParam(required = false) DocumentType documentType) {
         return new KycApproval(kycService.isApproved(userId, documentType));

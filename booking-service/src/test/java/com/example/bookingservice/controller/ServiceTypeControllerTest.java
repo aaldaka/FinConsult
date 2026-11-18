@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// runs on finconsult_test (TEST_DB_URL), which the main app's tests build. It only reads the service types
+// runs on finconsult_test (TEST_DB_URL), which docker/db/init/00-create-test-db.sh builds. It only reads the service types
 // that are already there, it creates and deletes nothing
 @SpringBootTest
 @AutoConfigureMockMvc

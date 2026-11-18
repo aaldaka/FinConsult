@@ -11,7 +11,7 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-// one entry of the main app's audit_logs table. The services send the entries as AUDIT events and this service
+// one entry of the shared audit_logs table. The services send the entries as AUDIT events and this service
 // writes them. actor_id is only a number here (null for something the system did on its own), and timestamp is when
 // the change happened, taken from the event, not when it was written
 @Entity

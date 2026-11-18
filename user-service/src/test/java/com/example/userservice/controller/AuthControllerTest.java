@@ -68,7 +68,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// runs on finconsult_test (TEST_DB_URL), which the main app's tests build. Every user here is created by the
+// runs on finconsult_test (TEST_DB_URL), which docker/db/init/00-create-test-db.sh builds. Every user here is created by the
 // test with a unique email and deleted afterwards, real users are never touched. The KafkaTemplate is mocked, so
 // the email events are only recorded: nothing reaches a broker and no mail is sent
 @SpringBootTest

@@ -53,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-// the main app's ApplicationConcurrencyTest, ported. Runs on finconsult_test (TEST_DB_URL), no @Transactional on the
+// the original monolith's ApplicationConcurrencyTest, ported. Runs on finconsult_test (TEST_DB_URL), no @Transactional on the
 // class, so the unique index, the version checks and the force-increment lock are the real ones. Advisors live in the
 // user service now, so FakeUserService plays it: "one Advisor row" became "promoted exactly once". Each test makes its
 // own users with TestPeople and deletes them with their applications afterwards, and files go into a temp dir

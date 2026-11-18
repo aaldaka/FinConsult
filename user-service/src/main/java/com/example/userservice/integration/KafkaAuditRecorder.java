@@ -4,7 +4,7 @@ import com.example.userservice.model.enums.AuditAction;
 import org.springframework.stereotype.Component;
 
 // an AUDIT event on audit-events, keyed "<entityType>:<entityId>" so the entries for one record stay in order. The
-// callers pass the entity type themselves (User, Advisor, Profile), the same values the main app stored
+// callers pass the entity type themselves (User, Advisor, Profile), the same values the original monolith stored
 @Component
 public class KafkaAuditRecorder implements AuditRecorder {
 

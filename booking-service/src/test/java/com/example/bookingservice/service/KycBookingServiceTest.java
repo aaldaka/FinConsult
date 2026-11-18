@@ -43,7 +43,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 // no Spring and no database: the KYC check is asked before the booking transaction opens, and its answer is used
-// inside it at the same point and with the same messages as the main app
+// inside it at the same point and with the same messages as the original monolith
 @ExtendWith(MockitoExtension.class)
 class KycBookingServiceTest {
 

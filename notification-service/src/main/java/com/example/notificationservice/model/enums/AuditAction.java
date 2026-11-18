@@ -1,6 +1,6 @@
 package com.example.notificationservice.model.enums;
 
-// every action the audit log knows, the same list as the main app. Only used to check the action filter of
+// every action the audit log knows, the same list the other services send. Only used to check the action filter of
 // GET /admin/logs; the events are stored with whatever action they carry
 public enum AuditAction {
     PROFILE_UPDATED,

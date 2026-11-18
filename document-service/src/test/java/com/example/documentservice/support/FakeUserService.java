@@ -31,10 +31,8 @@ public class FakeUserService {
     private final Set<Long> blacklisted = ConcurrentHashMap.newKeySet();
     private final Set<Long> inactive = ConcurrentHashMap.newKeySet();
     private final AtomicLong promotions = new AtomicLong();
-    private final Runnable beforeEachCall;
 
     public FakeUserService(UserClient userClient, Runnable beforeEachCall) {
-        this.beforeEachCall = beforeEachCall;
         lenient().when(userClient.getById(anyLong())).thenAnswer(invocation -> {
             beforeEachCall.run();
             Long id = invocation.getArgument(0);

@@ -9,8 +9,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 // the partial unique indexes JPA cannot declare: one pending KYC document per user and type, and one pending advisor
-// application per user. They are the backstop for a double submit. Same names and definitions as the main app, and
-// IF NOT EXISTS, so it is harmless when the main app has already created them on the shared database
+// application per user. They are the backstop for a double submit. Same names and definitions as docker/db/init/01-schema.sql, and
+// IF NOT EXISTS, so it is harmless when the schema script has already created them on the shared database
 @Slf4j
 @Component
 @Order(0)

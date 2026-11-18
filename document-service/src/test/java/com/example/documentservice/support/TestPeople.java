@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-// users made only for one test, with unique emails, so a test never reaches rows another test or the main app's tests
+// users made only for one test, with unique emails, so a test never reaches rows another test or another service's tests
 // own. deleteCreated removes their documents, applications and certificates first, then the users
 public class TestPeople {
 
